@@ -1,0 +1,15 @@
+{
+  "name": "cg-cal-cloudflare",
+  "version": "2.0.0",
+  "description": "寵物檔次計算工具 (Cloudflare Pages)",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "keywords": ["cg", "pet", "cloudflare"],
+  "author": "Phelim Xue",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

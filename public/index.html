@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魔力寶貝 - 寵物檔次計算機</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px 0;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .card {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .result-group {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #0d6efd;
+        }
+        .group-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .group-header:hover {
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .expand-icon {
+            transition: transform 0.3s;
+            display: inline-block;
+        }
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        .random-combos {
+            display: none;
+            margin-top: 10px;
+        }
+        .random-combos.show {
+            display: block;
+        }
+        .stat-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .combo-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .percentage {
+            font-weight: bold;
+            color: #0d6efd;
+            font-size: 1.1em;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error-message {
+            display: none;
+            margin: 20px 0;
+        }
+        .summary-stats {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .attribute-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        h1 {
+            color: #0d6efd;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        label {
+            font-weight: 500;
+            color: #495057;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>魔力寶貝 - 寵物檔次計算機</h1>
+
+        <!-- 輸入表單 -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">輸入參數</h5>
+                <form id="calculatorForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="baseGrow" class="form-label">寵物成長檔（5個數值，用空格或逗號分隔）</label>
+                            <input type="text" class="form-control" id="baseGrow" placeholder="例如: 36 38 34 11 6" required>
+                            <small class="form-text text-muted">順序：體力、力量、強度、速度、魔法</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="targetStats" class="form-label">寵物素質（5個數值，用空格或逗號分隔）</label>
+                            <input type="text" class="form-control" id="targetStats" placeholder="例如: 1797 683 348 355 132" required>
+                            <small class="form-text text-muted">順序：血量、魔力、攻擊、防禦、敏捷</small>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label for="bpRateVal" class="form-label">成長率 (%)</label>
+                            <input type="number" class="form-control" id="bpRateVal" value="20" min="1" max="100" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="petLevel" class="form-label">寵物等級</label>
+                            <input type="number" class="form-control" id="petLevel" value="1" min="1" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="remainingPoints" class="form-label">剩餘點數</label>
+                            <input type="number" class="form-control" id="remainingPoints" value="0" min="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="errorTolerance" class="form-label">允許誤差</label>
+                            <select class="form-select" id="errorTolerance" required>
+                                <option value="-1" selected>智能</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">開始計算</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 載入中提示 -->
+        <div class="loading" id="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">計算中...</span>
+            </div>
+            <p class="mt-2">正在計算中，請稍候...</p>
+        </div>
+
+        <!-- 錯誤訊息 -->
+        <div class="alert alert-danger error-message" id="errorMessage"></div>
+
+        <!-- 結果顯示 -->
+        <div id="results"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API 端點設定
+        const API_URL = '/api/calculate';
+
+        // 屬性名稱對照
+        const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
+        const STAT_NAMES = { hp: 'HP', mp: 'MP', atk: 'ATK', def: 'DEF', agi: 'AGI' };
+
+        // 解析輸入的數值陣列（支援空格和逗號分隔）
+        function parseNumberArray(input) {
+            return input.trim()
+                .replace(/,/g, ' ')
+                .split(/\s+/)
+                .map(n => parseFloat(n.trim()))
+                .filter(n => !isNaN(n));
+        }
+
+        // 表單提交處理
+        document.getElementById('calculatorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // 隱藏之前的結果和錯誤訊息
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                // 收集表單資料
+                const baseGrow = parseNumberArray(document.getElementById('baseGrow').value);
+                const targetStatsArray = parseNumberArray(document.getElementById('targetStats').value);
+                const bpRateVal = parseInt(document.getElementById('bpRateVal').value);
+                const petLevel = parseInt(document.getElementById('petLevel').value);
+                const remainingPoints = parseInt(document.getElementById('remainingPoints').value);
+                const errorTolerance = parseInt(document.getElementById('errorTolerance').value);
+
+                // 驗證輸入
+                if (baseGrow.length !== 5) {
+                    throw new Error('寵物成長檔必須包含 5 個數值');
+                }
+                if (targetStatsArray.length !== 5) {
+                    throw new Error('寵物素質必須包含 5 個數值');
+                }
+
+                // 組織 API 請求資料
+                const requestData = {
+                    baseGrow: baseGrow,
+                    petLevel: petLevel,
+                    targetStats: {
+                        hp: targetStatsArray[0],
+                        mp: targetStatsArray[1],
+                        atk: targetStatsArray[2],
+                        def: targetStatsArray[3],
+                        agi: targetStatsArray[4]
+                    },
+                    remainingPoints: remainingPoints,
+                    errorTolerance: errorTolerance,
+                    bpRateVal: bpRateVal
+                };
+
+                // 發送 API 請求
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '計算失敗');
+                }
+
+                // 顯示結果
+                displayResults(result.data, result.summary, baseGrow);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // 顯示結果
+        function displayResults(data, summary, baseGrow) {
+            if (data.length === 0) {
+                document.getElementById('results').innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>未找到符合條件的組合</strong>
+                        <p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 按 dropCombo + manualPoints 分組
+            const groupedResults = groupByDropAndManual(data);
+
+            // 計算掉檔統計
+            const dropStats = calculateDropStats(data, baseGrow);
+
+            // 建立 HTML
+            let html = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">計算結果</h5>
+
+                        <!-- 摘要資訊 -->
+                        <div class="summary-stats">
+                            <h6>找到 ${summary.totalMatches} 個最小誤差的組合（總誤差 ${data[0].totalError}）</h6>
+                            <p class="mb-2"><strong>執行時間：</strong>${summary.executionTime} 秒</p>
+                            <p class="mb-0"><strong>測試掉檔組合數：</strong>${summary.totalCombinationsTested.toLocaleString()}</p>
+                        </div>
+
+                        <!-- 掉檔統計 -->
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">掉檔統計</h6>
+                            <p class="mb-2"><strong>總掉檔落在 ${dropStats.totalDropRange.min}-${dropStats.totalDropRange.max} 檔</strong></p>
+                            <p class="mb-0">各屬性：${dropStats.attributeRanges.join('、')}</p>
+                        </div>
+
+                        <!-- 組合列表 -->
+                        <h6 class="mt-4 mb-3">找到 ${Object.keys(groupedResults).length} 個符合條件的組合</h6>
+                        ${renderGroupedResults(groupedResults, data.length)}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // 按 dropCombo + manualPoints 分組
+        function groupByDropAndManual(data) {
+            const groups = {};
+
+            data.forEach(item => {
+                const key = item.dropCombo.join(',') + '|' + item.manualPoints.join(',');
+                if (!groups[key]) {
+                    groups[key] = [];
+                }
+                groups[key].push(item);
+            });
+
+            return groups;
+        }
+
+        // 計算掉檔統計
+        function calculateDropStats(data, baseGrow) {
+            let totalDropMin = Infinity;
+            let totalDropMax = -Infinity;
+            const attrDropRanges = [
+                { min: Infinity, max: -Infinity },
+                { min: Infinity, max: -Infinity },
+                { min: Infinity, max: -Infinity },
+                { min: Infinity, max: -Infinity },
+                { min: Infinity, max: -Infinity }
+            ];
+
+            data.forEach(item => {
+                const totalDrop = item.dropCombo.reduce((sum, d) => sum + d, 0);
+                totalDropMin = Math.min(totalDropMin, totalDrop);
+                totalDropMax = Math.max(totalDropMax, totalDrop);
+
+                item.dropCombo.forEach((drop, i) => {
+                    attrDropRanges[i].min = Math.min(attrDropRanges[i].min, drop);
+                    attrDropRanges[i].max = Math.max(attrDropRanges[i].max, drop);
+                });
+            });
+
+            const attributeRanges = attrDropRanges.map((range, i) => {
+                if (range.min === range.max) {
+                    return `${ATTR_NAMES[i]}必定-${range.min}`;
+                } else {
+                    return `${ATTR_NAMES[i]}落在-${range.max}到-${range.min}`;
+                }
+            });
+
+            return {
+                totalDropRange: { min: totalDropMin, max: totalDropMax },
+                attributeRanges: attributeRanges
+            };
+        }
+
+        // 渲染分組結果
+        function renderGroupedResults(groupedResults, totalCount) {
+            let html = '';
+            let groupIndex = 0;
+
+            // 按出現次數排序
+            const sortedGroups = Object.entries(groupedResults)
+                .sort((a, b) => b[1].length - a[1].length);
+
+            sortedGroups.forEach(([groupKey, items]) => {
+                const percentage = ((items.length / totalCount) * 100).toFixed(2);
+                const [dropComboStr, manualPointsStr] = groupKey.split('|');
+                const dropCombo = dropComboStr.split(',').map(n => parseInt(n));
+                const manualPoints = manualPointsStr.split(',').map(n => parseInt(n));
+                const manualPointsText = formatManualPoints(manualPoints);
+
+                html += `
+                    <div class="result-group">
+                        <div class="group-header" onclick="toggleGroup(${groupIndex})">
+                            <span class="expand-icon" id="icon-${groupIndex}">▶</span>
+                            <span class="percentage">${percentage}%</span>
+                            <div class="mt-2">
+                                <strong>掉檔：</strong>${dropCombo.map((d, i) => `${ATTR_NAMES[i]}${d}`).join(' ')}
+                            </div>
+                            <div class="mt-1">
+                                <strong>加點：</strong>${manualPointsText}
+                            </div>
+                            <div class="mt-1 text-muted" style="font-size: 0.9em;">
+                                <em>點擊展開 ${items.length} 個隨機檔組合</em>
+                            </div>
+                        </div>
+                        <div class="random-combos" id="group-${groupIndex}">
+                `;
+
+                // 顯示所有隨機檔組合
+                items.forEach(item => {
+                    html += renderRandomCombo(item);
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+                groupIndex++;
+            });
+
+            return html;
+        }
+
+        // 切換組的展開/收起
+        function toggleGroup(index) {
+            const group = document.getElementById(`group-${index}`);
+            const icon = document.getElementById(`icon-${index}`);
+
+            if (group.classList.contains('show')) {
+                group.classList.remove('show');
+                icon.classList.remove('expanded');
+            } else {
+                group.classList.add('show');
+                icon.classList.add('expanded');
+            }
+        }
+
+        // 渲染單個隨機檔組合
+        function renderRandomCombo(item) {
+            return `
+                <div class="combo-item">
+                    <div><strong>隨機檔：</strong>${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}</div>
+                    <div class="mt-1">
+                        <span class="stat-badge">HP: ${item.stats.hp.toFixed(2)}</span>
+                        <span class="stat-badge">MP: ${item.stats.mp.toFixed(2)}</span>
+                        <span class="stat-badge">ATK: ${item.stats.atk.toFixed(2)}</span>
+                        <span class="stat-badge">DEF: ${item.stats.def.toFixed(2)}</span>
+                        <span class="stat-badge">AGI: ${item.stats.agi.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 格式化手動加點
+        function formatManualPoints(points) {
+            const nonZero = [];
+            points.forEach((p, i) => {
+                if (p > 0) {
+                    nonZero.push(`${ATTR_NAMES[i]}${p}點`);
+                }
+            });
+            return nonZero.length > 0 ? nonZero.join('，') : '無加點';
+        }
+    </script>
+</body>
+</html>
