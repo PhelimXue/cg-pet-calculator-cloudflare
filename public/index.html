@@ -174,6 +174,38 @@
                         </div>
                     </div>
 
+                    <!-- 增加基準勾選框 -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enableSecondCriteria">
+                                <label class="form-check-label" for="enableSecondCriteria">
+                                    增加基準（計算交集結果）
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第二組基準（預設隱藏） -->
+                    <div id="secondCriteriaBlock" style="display: none;" class="border rounded p-3 mb-3 bg-light">
+                        <h6 class="text-primary mb-3">第二組基準</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="petLevel2" class="form-label">寵物等級</label>
+                                <input type="number" class="form-control" id="petLevel2" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="remainingPoints2" class="form-label">剩餘點數</label>
+                                <input type="number" class="form-control" id="remainingPoints2" value="0" min="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="targetStats2" class="form-label">寵物素質 (血 魔 攻 防 敏)</label>
+                                <input type="text" class="form-control" id="targetStats2" placeholder="例如: 1797 683 348 355 132">
+                                <small class="form-text text-muted">格式：五個數字，用空格或逗號分隔</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="d-grid gap-2 mt-4">
                         <button type="submit" class="btn btn-primary btn-lg">開始計算</button>
                     </div>
@@ -287,6 +319,18 @@
             }
         });
 
+        // === 控制第二組基準的顯示/隱藏 ===
+        const enableSecondCriteriaCheckbox = document.getElementById('enableSecondCriteria');
+        const secondCriteriaBlock = document.getElementById('secondCriteriaBlock');
+
+        enableSecondCriteriaCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                secondCriteriaBlock.style.display = 'block';
+            } else {
+                secondCriteriaBlock.style.display = 'none';
+            }
+        });
+
         // === 計算邏輯部分 ===
 
         function parseNumberArray(input) {
@@ -348,26 +392,84 @@
                         agi: targetStatsArray[4]
                     };
 
-                    // 執行計算 (傳入 signal)
-                    const result = await smartReverseCalculateMatrix(
-                        baseGrow,
-                        targetStats,
-                        petLevel,
-                        bpRateVal / 100,
-                        0,
-                        remainingPoints,
-                        errorTolerance,
-                        abortController.signal // [重點] 傳入中斷信號
-                    );
+                    // 檢查是否啟用第二組基準
+                    const useSecondCriteria = document.getElementById('enableSecondCriteria').checked;
 
-                    const data = result.results;
-                    const summary = {
-                        totalMatches: result.results.length,
-                        executionTime: result.executionTime,
-                        totalCombinationsTested: result.totalCombinationsTested
-                    };
+                    if (useSecondCriteria) {
+                        // === 交集計算模式 ===
+                        const targetStatsArray2 = parseNumberArray(document.getElementById('targetStats2').value);
+                        const petLevel2 = parseInt(document.getElementById('petLevel2').value);
+                        const remainingPoints2 = parseInt(document.getElementById('remainingPoints2').value);
 
-                    displayResults(data, summary, baseGrow);
+                        if (targetStatsArray2.length !== 5) throw new Error('第二組寵物素質必須包含 5 個數值');
+
+                        const targetStats2 = {
+                            hp: targetStatsArray2[0],
+                            mp: targetStatsArray2[1],
+                            atk: targetStatsArray2[2],
+                            def: targetStatsArray2[3],
+                            agi: targetStatsArray2[4]
+                        };
+
+                        // 執行第一次計算
+                        const result1 = await smartReverseCalculateMatrix(
+                            baseGrow,
+                            targetStats,
+                            petLevel,
+                            bpRateVal / 100,
+                            0,
+                            remainingPoints,
+                            errorTolerance,
+                            abortController.signal
+                        );
+
+                        // 執行第二次計算
+                        const result2 = await smartReverseCalculateMatrix(
+                            baseGrow,
+                            targetStats2,
+                            petLevel2,
+                            bpRateVal / 100,
+                            0,
+                            remainingPoints2,
+                            errorTolerance,
+                            abortController.signal
+                        );
+
+                        // 計算交集
+                        const intersectionData = calculateIntersection(result1.results, result2.results);
+
+                        const summary = {
+                            totalMatches: intersectionData.length,
+                            executionTime: (parseFloat(result1.executionTime) + parseFloat(result2.executionTime)).toFixed(2),
+                            totalCombinationsTested: result1.totalCombinationsTested + result2.totalCombinationsTested,
+                            isIntersection: true,
+                            set1Count: result1.results.length,
+                            set2Count: result2.results.length
+                        };
+
+                        displayResults(intersectionData, summary, baseGrow);
+                    } else {
+                        // === 單一計算模式 ===
+                        const result = await smartReverseCalculateMatrix(
+                            baseGrow,
+                            targetStats,
+                            petLevel,
+                            bpRateVal / 100,
+                            0,
+                            remainingPoints,
+                            errorTolerance,
+                            abortController.signal
+                        );
+
+                        const data = result.results;
+                        const summary = {
+                            totalMatches: result.results.length,
+                            executionTime: result.executionTime,
+                            totalCombinationsTested: result.totalCombinationsTested
+                        };
+
+                        displayResults(data, summary, baseGrow);
+                    }
 
                 } catch (error) {
                     // 區分是「手動中斷」還是「程式錯誤」
@@ -391,16 +493,43 @@
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.innerText = message; 
+            errorDiv.innerText = message;
             errorDiv.style.display = 'block';
+        }
+
+        // 計算兩組結果的交集（只比較 dropCombo + randomCombo，不包含 manualPoints）
+        function calculateIntersection(results1, results2) {
+            // 建立第一組結果的索引（使用 dropCombo + randomCombo 作為 key）
+            const set1 = new Map();
+            results1.forEach(item => {
+                const key = item.dropCombo.join(',') + '|' + item.randomCombo.join(',');
+                set1.set(key, item);
+            });
+
+            // 找出在兩組結果中都存在的組合
+            const intersection = [];
+            results2.forEach(item => {
+                const key = item.dropCombo.join(',') + '|' + item.randomCombo.join(',');
+                if (set1.has(key)) {
+                    intersection.push(item);
+                }
+            });
+
+            return intersection;
         }
 
         function displayResults(data, summary, baseGrow) {
             if (data.length === 0) {
+                let warningMessage = '<strong>未找到符合條件的組合</strong>';
+                if (summary.isIntersection) {
+                    warningMessage += `<p class="mb-0">第一組找到 ${summary.set1Count} 個組合，第二組找到 ${summary.set2Count} 個組合，但兩者沒有交集。</p>`;
+                    warningMessage += '<p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>';
+                } else {
+                    warningMessage += '<p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>';
+                }
                 document.getElementById('results').innerHTML = `
                     <div class="alert alert-warning">
-                        <strong>未找到符合條件的組合</strong>
-                        <p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>
+                        ${warningMessage}
                     </div>
                 `;
                 return;
@@ -409,10 +538,24 @@
             const groupedResults = groupByDropAndManual(data);
             const dropStats = calculateDropStats(data, baseGrow);
 
+            let intersectionInfo = '';
+            if (summary.isIntersection) {
+                intersectionInfo = `
+                    <div class="alert alert-success">
+                        <h6 class="alert-heading">✓ 交集計算結果</h6>
+                        <p class="mb-1">第一組基準找到 <strong>${summary.set1Count}</strong> 個組合</p>
+                        <p class="mb-1">第二組基準找到 <strong>${summary.set2Count}</strong> 個組合</p>
+                        <p class="mb-0">兩者交集共 <strong>${summary.totalMatches}</strong> 個組合</p>
+                    </div>
+                `;
+            }
+
             let html = `
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">計算結果</h5>
+
+                        ${intersectionInfo}
 
                         <div class="summary-stats">
                             <h6>找到 ${summary.totalMatches} 個最小誤差的組合（總誤差 ${data[0].totalError}）</h6>
