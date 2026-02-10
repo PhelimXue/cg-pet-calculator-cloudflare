@@ -24,7 +24,7 @@
 
 ## 線上使用
 
-訪問部署版本：[https://your-site.pages.dev](https://your-site.pages.dev)
+訪問部署版本：[https://cg-pet-calculator-cloudflare.pages.dev/](https://cg-pet-calculator-cloudflare.pages.dev/)
 
 ## 本地開發
 
