@@ -95,10 +95,160 @@ function solveLinearSystem(A, B) {
     return result;
 }
 
+// 針對1等寵物的優化計算函數
+async function calculateLevel1Pet(baseGrow, targetStats, errorTolerance, signal) {
+    const startTime = Date.now();
+    const BP_RATE_CONST = 0.2;
+
+    let solutions = [];
+    let checkedCount = 0;
+
+    // 生成所有drop組合 (5^5 = 3125)
+    const dropCombos = [];
+    function generateDrops(idx, current) {
+        if (idx === 5) {
+            dropCombos.push([...current]);
+            return;
+        }
+        for(let i = 0; i <= 4; i++) {
+            current[idx] = i;
+            generateDrops(idx + 1, current);
+        }
+    }
+    generateDrops(0, [0,0,0,0,0]);
+
+    // 過濾出有效的drop組合
+    const validDropCombos = dropCombos.filter(drop => {
+        for(let i = 0; i < 5; i++) {
+            if (baseGrow[i] - drop[i] < 0) return false;
+        }
+        return true;
+    });
+
+    // 遍歷所有有效的drop組合
+    for (let dIdx = 0; dIdx < validDropCombos.length; dIdx++) {
+        const drop = validDropCombos[dIdx];
+
+        // 每50次檢查是否需要中斷
+        if (dIdx % 50 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (signal && signal.aborted) {
+                throw new Error('ABORTED');
+            }
+        }
+
+        // 遍歷所有random組合 (總和=10，共1001種)
+        function generateRandomCombos(idx, currentRandom, remainingSum) {
+            if (idx === 5) {
+                // 檢查總和是否等於10
+                if (currentRandom.reduce((a, b) => a + b, 0) !== 10) return;
+
+                checkedCount++;
+
+                // 每10000次檢查一次中斷
+                if (checkedCount % 10000 === 0 && signal && signal.aborted) {
+                    throw new Error('ABORTED');
+                }
+
+                // 計算最終數值
+                const actualBp = [];
+                for(let i = 0; i < 5; i++) {
+                    let grow = baseGrow[i] - drop[i];
+                    actualBp.push(fixPos((grow + currentRandom[i]) * BP_RATE_CONST));
+                }
+
+                // BP 轉面板
+                const rawResults = [];
+                for(let r = 0; r < 5; r++) {
+                    let sum = 0;
+                    for(let c = 0; c < 5; c++) {
+                        sum += fixPos(MATRIX[r][c] * actualBp[c]);
+                    }
+                    rawResults.push(fixPos(sum + BASE));
+                }
+
+                // 計算誤差
+                const errHp = Math.abs(Math.floor(rawResults[0]) - targetStats.hp);
+                const errMp = Math.abs(Math.floor(rawResults[1]) - targetStats.mp);
+                const errAtk = Math.abs(Math.floor(rawResults[2]) - targetStats.atk);
+                const errDef = Math.abs(Math.floor(rawResults[3]) - targetStats.def);
+                const errAgi = Math.abs(Math.floor(rawResults[4]) - targetStats.agi);
+                const totalError = errHp + errMp + errAtk + errDef + errAgi;
+
+                let isPass = false;
+                if (errorTolerance === -1) {
+                    isPass = (totalError <= 5);
+                } else {
+                    isPass = (totalError <= errorTolerance);
+                }
+
+                if (isPass) {
+                    solutions.push({
+                        dropCombo: [...drop],
+                        randomCombo: [...currentRandom],
+                        manualPoints: [0, 0, 0, 0, 0],
+                        stats: {
+                            hp: rawResults[0],
+                            mp: rawResults[1],
+                            atk: rawResults[2],
+                            def: rawResults[3],
+                            agi: rawResults[4],
+                            actualBp: actualBp
+                        },
+                        totalError: totalError,
+                        actualGrow: baseGrow.map((g, i) => g - drop[i])
+                    });
+                }
+                return;
+            }
+
+            // 優化：使用剩餘總和來剪枝
+            const maxForThisSlot = Math.min(10, remainingSum);
+            for(let r = 0; r <= maxForThisSlot; r++) {
+                currentRandom[idx] = r;
+                generateRandomCombos(idx + 1, currentRandom, remainingSum - r);
+            }
+        }
+
+        try {
+            generateRandomCombos(0, [0,0,0,0,0], 10);
+        } catch (error) {
+            if (error.message === 'ABORTED') throw error;
+        }
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    // 如果是智能模式，只保留最小誤差的結果
+    if (errorTolerance === -1 && solutions.length > 0) {
+        let minErr = solutions.reduce((min, s) => Math.min(min, s.totalError), Infinity);
+        solutions = solutions.filter(s => s.totalError === minErr);
+    }
+
+    // 排序
+    solutions.sort((a, b) => {
+        if (a.totalError !== b.totalError) return a.totalError - b.totalError;
+        let dropA = a.dropCombo.reduce((s, v) => s + v, 0);
+        let dropB = b.dropCombo.reduce((s, v) => s + v, 0);
+        return dropA - dropB;
+    });
+
+    return {
+        results: solutions,
+        executionTime: elapsed,
+        totalCombinationsTested: checkedCount
+    };
+}
+
 // [修改] 新增 signal 參數
 export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLevel, bpRateVal, maxResults, remainingPoints, errorTolerance, signal) {
+    // 如果是1等寵物，使用優化的計算方式
+    if (petLevel === 1) {
+        return await calculateLevel1Pet(baseGrow, targetStats, errorTolerance, signal);
+    }
+
     const startTime = Date.now();
-    const BP_RATE_CONST = 0.2; 
+    const BP_RATE_CONST = 0.2;
 
     // --- 準備階段 ---
     const targetArray = [targetStats.hp, targetStats.mp, targetStats.atk, targetStats.def, targetStats.agi];
@@ -198,9 +348,10 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
 
         function solveCombination(idx, sumM, sumR, currentM, currentR) {
             if (sumM > totalAllocatedTarget) return;
-            
+            if (sumR > 10) return; // 剪枝：隨機檔總和不能超過10
+
             if (idx === 5) {
-                if (sumM === totalAllocatedTarget && sumR >= 0 && sumR <= 10) { // 隨機檔範圍
+                if (sumM === totalAllocatedTarget && sumR === 10) { // 隨機檔總和必須等於10
                     verifySolution(drop, currentR, currentM);
                 }
                 return;
@@ -208,7 +359,8 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
 
             for (let cand of possibleAttrs[idx]) {
                 if (sumM + cand.m > totalAllocatedTarget) continue;
-                
+                if (sumR + cand.r > 10) continue; // 剪枝：避免超過10
+
                 currentM[idx] = cand.m;
                 currentR[idx] = cand.r;
                 solveCombination(idx + 1, sumM + cand.m, sumR + cand.r, currentM, currentR);
