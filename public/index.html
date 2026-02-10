@@ -240,6 +240,79 @@
         const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
         const STAT_NAMES = { hp: 'HP', mp: 'MP', atk: 'ATK', def: 'DEF', agi: 'AGI' };
 
+        // === URL 參數處理 ===
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            if (!params.has('baseGrow')) return false; // 沒有參數就不處理
+
+            // 載入基本參數
+            if (params.has('baseGrow')) document.getElementById('baseGrow').value = params.get('baseGrow');
+            if (params.has('bpRateVal')) document.getElementById('bpRateVal').value = params.get('bpRateVal');
+            if (params.has('errorTolerance')) document.getElementById('errorTolerance').value = params.get('errorTolerance');
+            if (params.has('petLevel')) document.getElementById('petLevel').value = params.get('petLevel');
+            if (params.has('remainingPoints')) document.getElementById('remainingPoints').value = params.get('remainingPoints');
+            if (params.has('targetStats')) document.getElementById('targetStats').value = params.get('targetStats');
+
+            // 載入第二組基準
+            const hasSecondCriteria = params.get('enableSecondCriteria') === 'true';
+            document.getElementById('enableSecondCriteria').checked = hasSecondCriteria;
+
+            if (hasSecondCriteria) {
+                const secondCriteriaBlock = document.getElementById('secondCriteriaBlock');
+                secondCriteriaBlock.style.display = 'block';
+                if (params.has('petLevel2')) document.getElementById('petLevel2').value = params.get('petLevel2');
+                if (params.has('remainingPoints2')) document.getElementById('remainingPoints2').value = params.get('remainingPoints2');
+                if (params.has('targetStats2')) document.getElementById('targetStats2').value = params.get('targetStats2');
+            }
+
+            return true; // 表示有載入參數
+        }
+
+        function generateShareURL() {
+            const params = new URLSearchParams();
+
+            // 收集所有參數
+            params.set('baseGrow', document.getElementById('baseGrow').value);
+            params.set('bpRateVal', document.getElementById('bpRateVal').value);
+            params.set('errorTolerance', document.getElementById('errorTolerance').value);
+            params.set('petLevel', document.getElementById('petLevel').value);
+            params.set('remainingPoints', document.getElementById('remainingPoints').value);
+            params.set('targetStats', document.getElementById('targetStats').value);
+
+            // 如果啟用第二組基準
+            if (document.getElementById('enableSecondCriteria').checked) {
+                params.set('enableSecondCriteria', 'true');
+                params.set('petLevel2', document.getElementById('petLevel2').value);
+                params.set('remainingPoints2', document.getElementById('remainingPoints2').value);
+                params.set('targetStats2', document.getElementById('targetStats2').value);
+            }
+
+            // 使用當前 domain
+            const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+            return url;
+        }
+
+        // 將 copyToClipboard 設為全域函數供 onclick 使用
+        window.copyToClipboard = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // 顯示複製成功提示
+                const btn = document.getElementById('shareBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ 已複製到剪貼簿';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-info');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-info');
+                    btn.classList.add('btn-success');
+                }, 2000);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+                alert('複製失敗，請手動複製 URL');
+            });
+        };
+
         // === 寵物資料與搜尋 ===
         let petData = [];
 
@@ -253,7 +326,7 @@
                 const response = await fetch('./originmood-pet-data.json');
                 if (!response.ok) throw new Error('無法載入寵物資料檔');
                 const json = await response.json();
-                
+
                 petData = Object.entries(json).map(([key, value]) => {
                     const simpleName = converter ? converter(key) : key;
                     return {
@@ -262,7 +335,7 @@
                         grow: value.grow
                     };
                 });
-                
+
                 console.log(`成功載入 ${petData.length} 筆寵物資料`);
 
             } catch (err) {
@@ -270,7 +343,23 @@
                 // 即便失敗也不影響主功能，只是搜尋不能用
             }
         }
-        initPetData();
+
+        // 初始化流程
+        async function init() {
+            await initPetData();
+
+            // 檢查並載入 URL 參數
+            const hasParams = loadFromURL();
+            if (hasParams) {
+                // 如果有 URL 參數，自動執行計算
+                console.log('從 URL 載入參數，自動開始計算...');
+                setTimeout(() => {
+                    document.getElementById('calculatorForm').dispatchEvent(new Event('submit'));
+                }, 100);
+            }
+        }
+
+        init();
 
         const searchInput = document.getElementById('petSearch');
         const resultsContainer = document.getElementById('search-results-container');
@@ -519,6 +608,20 @@
         }
 
         function displayResults(data, summary, baseGrow) {
+            // 產生分享按鈕
+            const shareURL = generateShareURL();
+            const shareButtonHTML = `
+                <div class="alert alert-success d-flex align-items-center justify-content-between">
+                    <div>
+                        <strong>🔗 分享此次計算</strong>
+                        <p class="mb-0 small text-muted">複製連結分享給其他人，他們打開連結後會自動計算相同結果</p>
+                    </div>
+                    <button id="shareBtn" class="btn btn-success" onclick="copyToClipboard('${shareURL.replace(/'/g, "\\'")}')">
+                        📋 複製分享連結
+                    </button>
+                </div>
+            `;
+
             if (data.length === 0) {
                 let warningMessage = '<strong>未找到符合條件的組合</strong>';
                 if (summary.isIntersection) {
@@ -528,6 +631,7 @@
                     warningMessage += '<p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>';
                 }
                 document.getElementById('results').innerHTML = `
+                    ${shareButtonHTML}
                     <div class="alert alert-warning">
                         ${warningMessage}
                     </div>
@@ -551,6 +655,7 @@
             }
 
             let html = `
+                ${shareButtonHTML}
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">計算結果</h5>
