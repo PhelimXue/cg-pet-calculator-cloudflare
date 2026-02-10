@@ -186,8 +186,12 @@
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">計算中...</span>
             </div>
-            <p class="mt-2">正在計算中，請稍候...</p>
-            <p class="mt-2">若一直卡在這，請檢察是否有穿寵裝導致計算不出結果...</p>
+            <p class="mt-2 text-primary fw-bold">正在計算中，請稍候...</p>
+            <p class="mt-1 text-muted small">若計算時間過久，可能是誤差範圍過大導致窮舉量激增</p>
+            <!-- 中斷按鈕 -->
+            <button type="button" class="btn btn-danger mt-2" id="cancelBtn">
+                ⛔ 中斷計算
+            </button>
         </div>
 
         <!-- 錯誤訊息 -->
@@ -209,32 +213,29 @@
 
         async function initPetData() {
             try {
-                // 1. 初始化 OpenCC 轉換器 (繁體 -> 簡體)
-                // 這樣我們可以把所有寵物名字多存一份簡體版本，方便比對
                 let converter = null;
                 if (window.OpenCC) {
                     converter = await window.OpenCC.Converter({ from: 'tw', to: 'cn' });
                 }
 
-                // 2. 載入資料
                 const response = await fetch('./originmood-pet-data.json');
                 if (!response.ok) throw new Error('無法載入寵物資料檔');
                 const json = await response.json();
                 
-                // 3. 處理資料與建立索引
                 petData = Object.entries(json).map(([key, value]) => {
-                    const simpleName = converter ? converter(key) : key; // 產生簡體名
+                    const simpleName = converter ? converter(key) : key;
                     return {
-                        name: key,             // 原名 (如: 貓妖)
-                        searchKey: simpleName, // 搜尋用簡體名 (如: 猫妖)
+                        name: key,
+                        searchKey: simpleName,
                         grow: value.grow
                     };
                 });
                 
-                console.log(`成功載入 ${petData.length} 筆寵物資料 (包含繁簡索引)`);
+                console.log(`成功載入 ${petData.length} 筆寵物資料`);
 
             } catch (err) {
                 console.error('寵物資料載入失敗:', err);
+                // 即便失敗也不影響主功能，只是搜尋不能用
             }
         }
         initPetData();
@@ -243,7 +244,6 @@
         const resultsContainer = document.getElementById('search-results-container');
         const baseGrowInput = document.getElementById('baseGrow');
 
-        // 搜尋邏輯修改
         searchInput.addEventListener('input', async (e) => {
             const term = e.target.value.trim();
             resultsContainer.innerHTML = '';
@@ -253,10 +253,6 @@
                 return;
             }
 
-            // 實作繁簡通搜邏輯：
-            // 我們不需要把使用者輸入轉來轉去，直接雙向比對即可：
-            // 如果 使用者輸入的是 "猫" (簡)，會匹配到 searchKey
-            // 如果 使用者輸入的是 "貓" (繁)，會匹配到 name
             const matches = petData.filter(pet => {
                 return pet.name.includes(term) || pet.searchKey.includes(term);
             });
@@ -265,17 +261,14 @@
                 matches.forEach(pet => {
                     const item = document.createElement('a');
                     item.className = 'list-group-item list-group-item-action suggestion-item';
-                    
-                    // 在列表顯示時，可以標示出原始名稱
                     item.innerHTML = `<strong>${pet.name}</strong> <small class="text-muted">(${pet.grow})</small>`;
                     
                     item.addEventListener('click', () => {
                         baseGrowInput.value = pet.grow.replace(/,/g, ' ');
-                        searchInput.value = pet.name; // 點擊後，輸入框一律顯示正確的繁體原名
+                        searchInput.value = pet.name;
                         resultsContainer.style.display = 'none';
                         baseGrowInput.focus();
                         
-                        // 視覺回饋
                         baseGrowInput.style.backgroundColor = '#e7f3ff';
                         setTimeout(() => baseGrowInput.style.backgroundColor = '', 500);
                     });
@@ -294,7 +287,7 @@
             }
         });
 
-        // === 計算邏輯部分 (無變更) ===
+        // === 計算邏輯部分 ===
 
         function parseNumberArray(input) {
             return input.trim()
@@ -304,15 +297,39 @@
                 .filter(n => !isNaN(n));
         }
 
+        // 用來存放当前的 Controller (用於中斷)
+        let abortController = null;
+
         document.getElementById('calculatorForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // 如果已有正在跑的計算，先中斷它
+            if (abortController) {
+                abortController.abort();
+            }
+            // 建立新的 Controller
+            abortController = new AbortController();
 
             document.getElementById('results').innerHTML = '';
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
+            // 設定中斷按鈕事件
+            const cancelBtn = document.getElementById('cancelBtn');
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = '⛔ 中斷計算';
+            cancelBtn.onclick = () => {
+                if (abortController) {
+                    abortController.abort(); // 發送中斷信號
+                    cancelBtn.textContent = '正在中止...';
+                    cancelBtn.disabled = true;
+                }
+            };
+
+            // 使用 setTimeout 確保 UI (Loading) 已經畫出來
             setTimeout(async () => {
                 try {
+                    // 基本檢查與讀值 (這部分很快，不需要中斷機制)
                     const baseGrow = parseNumberArray(document.getElementById('baseGrow').value);
                     const targetStatsArray = parseNumberArray(document.getElementById('targetStats').value);
                     const bpRateVal = parseInt(document.getElementById('bpRateVal').value);
@@ -331,6 +348,7 @@
                         agi: targetStatsArray[4]
                     };
 
+                    // 執行計算 (傳入 signal)
                     const result = await smartReverseCalculateMatrix(
                         baseGrow,
                         targetStats,
@@ -338,7 +356,8 @@
                         bpRateVal / 100,
                         0,
                         remainingPoints,
-                        errorTolerance
+                        errorTolerance,
+                        abortController.signal // [重點] 傳入中斷信號
                     );
 
                     const data = result.results;
@@ -351,17 +370,28 @@
                     displayResults(data, summary, baseGrow);
 
                 } catch (error) {
-                    showError(error.message);
-                    console.error(error);
+                    // 區分是「手動中斷」還是「程式錯誤」
+                    if (error.message === 'ABORTED' || error.name === 'AbortError') {
+                        document.getElementById('results').innerHTML = `
+                            <div class="alert alert-warning border border-warning">
+                                <h4>🛑 已中斷計算</h4>
+                                <p class="mb-0">您已手動停止運算。若運算過久，建議檢查輸入數值是否正確（例如是否忘記脫裝備），或者將「允許誤差」設為智能。</p>
+                            </div>
+                        `;
+                    } else {
+                        showError(error.message);
+                        console.error(error);
+                    }
                 } finally {
                     document.getElementById('loading').style.display = 'none';
+                    abortController = null; // 清空
                 }
             }, 50);
         });
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
+            errorDiv.innerText = message; 
             errorDiv.style.display = 'block';
         }
 
@@ -387,7 +417,7 @@
                         <div class="summary-stats">
                             <h6>找到 ${summary.totalMatches} 個最小誤差的組合（總誤差 ${data[0].totalError}）</h6>
                             <p class="mb-2"><strong>執行時間：</strong>${summary.executionTime} 秒</p>
-                            <p class="mb-0"><strong>測試掉檔組合數：</strong>${summary.totalCombinationsTested.toLocaleString()}</p>
+                            <p class="mb-0"><strong>測試組合數：</strong>${summary.totalCombinationsTested.toLocaleString()}</p>
                         </div>
 
                         <div class="alert alert-info">
@@ -479,7 +509,6 @@
             return html;
         }
 
-        // 使用 CustomEvent 來處理 onclick (更乾淨的寫法)
         document.addEventListener('toggle-group', (e) => {
             toggleGroup(e.detail);
         });
