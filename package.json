@@ -1,12 +1,17 @@
 {
-  "name": "cg-cal-cloudflare",
-  "version": "2.0.0",
-  "description": "寵物檔次計算工具 (Cloudflare Pages)",
+  "name": "cg-pet-calculator",
+  "version": "2.0.1",
+  "description": "魔力寶貝-寵物檔次計算工具",
   "scripts": {
-    "dev": "wrangler pages dev public",
-    "deploy": "wrangler pages deploy public"
+    "dev": "wrangler pages dev",
+    "deploy": "wrangler pages deploy"
   },
-  "keywords": ["cg", "pet", "cloudflare"],
+  "keywords": [
+    "cg",
+    "pet",
+    "calculator",
+    "static"
+  ],
   "author": "Phelim Xue",
   "license": "MIT",
   "devDependencies": {

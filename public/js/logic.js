@@ -1,5 +1,4 @@
-// lib/logic.js
-// 這裡只放純數學邏輯，不依賴任何外部套件
+// public/js/logic.js
 
 const MATRIX = [
     [8,   2,   3,   3,   1  ],  // HP
@@ -9,7 +8,9 @@ const MATRIX = [
     [0.1, 0.2, 0.2, 2,   0.1],  // AGI
 ];
 const BASE = 20;
+const ATTR_LABELS = ['體力', '力量', '強度', '速度', '魔法'];
 
+// 成長率表
 const fullRates = {
     0:0, 1:0.04, 2:0.08, 3:0.12, 4:0.16, 5:0.205,
     6:0.25, 7:0.29, 8:0.33, 9:0.37, 10:0.415,
@@ -94,7 +95,6 @@ function solveLinearSystem(A, B) {
     return result;
 }
 
-// 主要輸出的函式 (加上 export)
 export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLevel, bpRateVal, maxResults, remainingPoints, errorTolerance) {
     const startTime = Date.now();
     const BP_RATE_CONST = 0.2; 
@@ -104,7 +104,46 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
     const totalAllocatedTarget = (petLevel - 1) - remainingPoints;
 
     const B_Vector = targetArray.map(v => v - BASE);
+    
+    // 1. 高斯消去法求解 (取得理論上需要的 BP)
     const approxBP = solveLinearSystem(MATRIX, B_Vector);
+
+    // === 新增：合理性檢查 (Sanity Check) ===
+    // 用來快速攔截「穿裝備」或「數值輸入錯誤」的情況
+    const maxTotalManual = (petLevel - 1); 
+    // 寬容度設定：允許 4 點的誤差 (包含浮動範圍和些微計算誤差)
+    // 裝備通常動輒 +50~200 數值，換算成 BP 會遠超這個範圍
+    const BUFFER = 4; 
+    let totalExcess = 0;
+
+    for(let i=0; i<5; i++) {
+        // 負值檢查：BP 不太可能是負很大的數字
+        if (approxBP[i] < -5) {
+            throw new Error(`計算出的 ${ATTR_LABELS[i]}BP 為負值 (${approxBP[i].toFixed(1)})，請檢查輸入數值是否正確(或太低)。`);
+        }
+
+        // 上限檢查：
+        // 計算該屬性在「0掉檔」情況下的自然成長 BP
+        let grow = baseGrow[i];
+        let theoreticalMaxNaturalBP = fixPos(grow * 0.2 + getRate(grow) * (petLevel - 1));
+        
+        // 該屬性 "多出來" 的 BP (理論上這些應該來自 手動加點 + 隨機檔)
+        let diff = approxBP[i] - theoreticalMaxNaturalBP;
+        
+        // 如果單一屬性多出來的 BP，比 (總共可用的手動點數 + 15) 還要大
+        // 那絕對是有穿裝備，或者是吃種子吃過了頭
+        if (diff > (maxTotalManual + BUFFER)) {
+            throw new Error(`數值異常：${ATTR_LABELS[i]} 過高。\n推測可能【穿著裝備】或【輸入數值有誤】。請卸下裝備後再試。`);
+        }
+
+        if (diff > 0) totalExcess += diff;
+    }
+
+    // 總和檢查：如果所有屬性多出来的 BP 總和，遠超等級給予的點數
+    if (totalExcess > (maxTotalManual + BUFFER)) {
+         throw new Error(`總能力值過高 (超出理論上限)。\n請確認是否【穿著裝備】？計算前請務必卸下全套裝備。`);
+    }
+    // === 檢查結束 ===
 
     let solutions = [];
     let checkedCount = 0;
@@ -135,13 +174,15 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
             let diff = approxBP[i] - baseBp;
 
             let centerManual = Math.round(diff);
-            let minM = Math.max(0, centerManual - 4);
-            let maxM = Math.max(0, centerManual + 4);
+            // 縮小搜索範圍，因為我們已經做過 Sanity Check，這裡可以稍微大膽一點
+            let minM = Math.max(0, centerManual - 3);
+            let maxM = Math.max(0, centerManual + 3);
 
             for (let m = minM; m <= maxM; m++) {
                 for (let r = 0; r <= 10; r++) {
                      let tempBP = baseBp + m + r * 0.2;
-                     if (Math.abs(tempBP - approxBP[i]) < 1.5) {
+                     // 稍微放寬判定以容納浮點數誤差
+                     if (Math.abs(tempBP - approxBP[i]) < 1.6) {
                          possibleAttrs[i].push({ m, r });
                      }
                 }
@@ -156,16 +197,21 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
 
         function solveCombination(idx, sumM, sumR, currentM, currentR) {
             if (sumM > totalAllocatedTarget) return;
-            if (sumR > 10) return; 
-
+            // 剪枝：如果剩下的屬性全加 0 都已經爆了，就不用算了 (雖然後面層數很少，但加上保險)
+            
             if (idx === 5) {
-                if (sumM === totalAllocatedTarget && sumR === 10) {
+                // 這裡稍微寬容一點，隨機檔總和不一定是 10，有些稀有情況會少
+                // 但通常是 10。如果想要嚴格限制可以 recovery
+                if (sumM === totalAllocatedTarget && sumR >= 0 && sumR <= 15) { // 隨機檔範圍放寬一點避免死板
                     verifySolution(drop, currentR, currentM);
                 }
                 return;
             }
 
             for (let cand of possibleAttrs[idx]) {
+                // 遞迴剪枝
+                if (sumM + cand.m > totalAllocatedTarget) continue;
+                
                 currentM[idx] = cand.m;
                 currentR[idx] = cand.r;
                 solveCombination(idx + 1, sumM + cand.m, sumR + cand.r, currentM, currentR);
