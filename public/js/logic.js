@@ -102,6 +102,7 @@ async function calculateLevel1Pet(baseGrow, targetStats, errorTolerance, signal)
 
     let solutions = [];
     let checkedCount = 0;
+    let skippedDropCombos = 0; // 統計跳過的掉檔組合數
 
     // 生成所有drop組合 (5^5 = 3125)
     const dropCombos = [];
@@ -136,6 +137,63 @@ async function calculateLevel1Pet(baseGrow, targetStats, errorTolerance, signal)
                 throw new Error('ABORTED');
             }
         }
+
+        // ===== 剪枝優化：計算素質邊界 =====
+        // 計算最小素質（隨機檔全0）
+        const actualBpMin = [];
+        for(let i = 0; i < 5; i++) {
+            let grow = baseGrow[i] - drop[i];
+            actualBpMin.push(fixPos(grow * BP_RATE_CONST));
+        }
+
+        const minRawResults = [];
+        for(let r = 0; r < 5; r++) {
+            let sum = 0;
+            for(let c = 0; c < 5; c++) {
+                sum += fixPos(MATRIX[r][c] * actualBpMin[c]);
+            }
+            minRawResults.push(fixPos(sum + BASE));
+        }
+
+        // 計算最大素質（隨機檔最佳分配）
+        const maxRandomBP = 10 * BP_RATE_CONST; // 2.0
+        const maxContribution = {
+            hp: MATRIX[0][0] * maxRandomBP,   // 體力對HP貢獻最大
+            mp: MATRIX[1][4] * maxRandomBP,   // 魔法對MP貢獻最大
+            atk: MATRIX[2][1] * maxRandomBP,  // 力量對ATK貢獻最大
+            def: MATRIX[3][2] * maxRandomBP,  // 強度對DEF貢獻最大
+            agi: MATRIX[4][3] * maxRandomBP   // 速度對AGI貢獻最大
+        };
+
+        const maxRawResults = [
+            minRawResults[0] + maxContribution.hp,
+            minRawResults[1] + maxContribution.mp,
+            minRawResults[2] + maxContribution.atk,
+            minRawResults[3] + maxContribution.def,
+            minRawResults[4] + maxContribution.agi
+        ];
+
+        // 檢查目標素質是否在可能範圍內（允許±2的誤差）
+        const tolerance = 2;
+        const canMatch = (
+            targetStats.hp >= Math.floor(minRawResults[0]) - tolerance &&
+            targetStats.hp <= Math.floor(maxRawResults[0]) + tolerance &&
+            targetStats.mp >= Math.floor(minRawResults[1]) - tolerance &&
+            targetStats.mp <= Math.floor(maxRawResults[1]) + tolerance &&
+            targetStats.atk >= Math.floor(minRawResults[2]) - tolerance &&
+            targetStats.atk <= Math.floor(maxRawResults[2]) + tolerance &&
+            targetStats.def >= Math.floor(minRawResults[3]) - tolerance &&
+            targetStats.def <= Math.floor(maxRawResults[3]) + tolerance &&
+            targetStats.agi >= Math.floor(minRawResults[4]) - tolerance &&
+            targetStats.agi <= Math.floor(maxRawResults[4]) + tolerance
+        );
+
+        if (!canMatch) {
+            // 這個掉檔組合無論如何都無法匹配，直接跳過
+            skippedDropCombos++;
+            continue;
+        }
+        // ===== 剪枝優化結束 =====
 
         // 遍歷所有random組合 (總和=10，共1001種)
         function generateRandomCombos(idx, currentRandom, remainingSum) {
@@ -236,7 +294,8 @@ async function calculateLevel1Pet(baseGrow, targetStats, errorTolerance, signal)
     return {
         results: solutions,
         executionTime: elapsed,
-        totalCombinationsTested: checkedCount
+        totalCombinationsTested: checkedCount,
+        skippedDropCombos: skippedDropCombos
     };
 }
 
@@ -288,6 +347,7 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
 
     let solutions = [];
     let checkedCount = 0;
+    let skippedDropCombos = 0; // 統計跳過的掉檔組合數
 
     const dropCombos = [];
     function generateDrops(idx, current) {
@@ -295,7 +355,7 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
             dropCombos.push([...current]);
             return;
         }
-        for(let i=0; i<=4; i++) { 
+        for(let i=0; i<=4; i++) {
             current[idx] = i;
             generateDrops(idx+1, current);
         }
@@ -316,7 +376,65 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
             }
         }
 
-        let possibleAttrs = [[], [], [], [], []]; 
+        // ===== 剪枝優化：計算素質邊界 =====
+        // 先快速檢查掉檔是否有效
+        let isValidDropForPruning = true;
+        for (let i = 0; i < 5; i++) {
+            if (baseGrow[i] - drop[i] < 0) {
+                isValidDropForPruning = false;
+                break;
+            }
+        }
+
+        if (isValidDropForPruning) {
+            // 計算最小素質（無加點，隨機檔全0）
+            const minStats = calculateFinalStats(baseGrow, drop, [0,0,0,0,0], [0,0,0,0,0], petLevel);
+
+            // 計算最大可能的額外貢獻
+            const maxRandomBP = 10 * BP_RATE_CONST; // 2.0
+            const maxManualBP = totalAllocatedTarget; // 可用的手動加點
+
+            // 對於每個素質，計算該素質最有利的 BP 屬性能提供的最大貢獻
+            const maxContribution = {
+                hp: MATRIX[0][0] * (maxRandomBP + maxManualBP),   // 體力對HP貢獻最大 (8)
+                mp: MATRIX[1][4] * (maxRandomBP + maxManualBP),   // 魔法對MP貢獻最大 (10)
+                atk: MATRIX[2][1] * (maxRandomBP + maxManualBP),  // 力量對ATK貢獻最大 (2.7)
+                def: MATRIX[3][2] * (maxRandomBP + maxManualBP),  // 強度對DEF貢獻最大 (3)
+                agi: MATRIX[4][3] * (maxRandomBP + maxManualBP)   // 速度對AGI貢獻最大 (2)
+            };
+
+            const maxStats = {
+                hp: minStats.hp + maxContribution.hp,
+                mp: minStats.mp + maxContribution.mp,
+                atk: minStats.atk + maxContribution.atk,
+                def: minStats.def + maxContribution.def,
+                agi: minStats.agi + maxContribution.agi
+            };
+
+            // 檢查目標素質是否在可能範圍內（允許±2的誤差）
+            const tolerance = 2;
+            const canMatch = (
+                targetStats.hp >= Math.floor(minStats.hp) - tolerance &&
+                targetStats.hp <= Math.floor(maxStats.hp) + tolerance &&
+                targetStats.mp >= Math.floor(minStats.mp) - tolerance &&
+                targetStats.mp <= Math.floor(maxStats.mp) + tolerance &&
+                targetStats.atk >= Math.floor(minStats.atk) - tolerance &&
+                targetStats.atk <= Math.floor(maxStats.atk) + tolerance &&
+                targetStats.def >= Math.floor(minStats.def) - tolerance &&
+                targetStats.def <= Math.floor(maxStats.def) + tolerance &&
+                targetStats.agi >= Math.floor(minStats.agi) - tolerance &&
+                targetStats.agi <= Math.floor(maxStats.agi) + tolerance
+            );
+
+            if (!canMatch) {
+                // 這個掉檔組合無論如何都無法匹配，直接跳過
+                skippedDropCombos++;
+                continue;
+            }
+        }
+        // ===== 剪枝優化結束 =====
+
+        let possibleAttrs = [[], [], [], [], []];
         let isValidDrop = true;
 
         for (let i = 0; i < 5; i++) {
@@ -420,6 +538,7 @@ export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLeve
     return {
         results: solutions,
         executionTime: elapsed,
-        totalCombinationsTested: checkedCount
+        totalCombinationsTested: checkedCount,
+        skippedDropCombos: skippedDropCombos
     };
 }
