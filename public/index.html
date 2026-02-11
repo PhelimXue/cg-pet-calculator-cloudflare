@@ -656,7 +656,9 @@
                         <div class="alert alert-info">
                             <h6 class="alert-heading">掉檔統計</h6>
                             <p class="mb-2"><strong>總掉檔落在 ${dropStats.totalDropRange.min}-${dropStats.totalDropRange.max} 檔</strong></p>
-                            <p class="mb-0">各屬性：${dropStats.attributeRanges.join('、')}</p>
+                            ${dropStats.certainDrops.length > 0
+                                ? `<p class="mb-0">各屬性：${dropStats.certainDrops.join('、')}</p>`
+                                : '<p class="mb-0 text-muted">各屬性掉檔不確定</p>'}
                         </div>
 
                         <h6 class="mt-4 mb-3">找到 ${Object.keys(groupedResults).length} 個符合條件的組合</h6>
@@ -694,14 +696,17 @@
                 });
             });
 
-            const attributeRanges = attrDropRanges.map((range, i) => {
-                if (range.min === range.max) return `${ATTR_NAMES[i]}必定-${range.min}`;
-                else return `${ATTR_NAMES[i]}落在-${range.max}到-${range.min}`;
+            // 只收集必定掉檔的屬性（min === max）
+            const certainDrops = [];
+            attrDropRanges.forEach((range, i) => {
+                if (range.min === range.max && range.min > 0) {
+                    certainDrops.push(`${ATTR_NAMES[i]}必定-${range.min}`);
+                }
             });
 
             return {
                 totalDropRange: { min: totalDropMin, max: totalDropMax },
-                attributeRanges: attributeRanges
+                certainDrops: certainDrops
             };
         }
 

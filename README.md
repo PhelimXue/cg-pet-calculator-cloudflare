@@ -1,7 +1,7 @@
 # 魔力寶貝 - 永恆初心 - 寵物檔次計算機
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/yourusername/cg-pet-calculator-cloudflare)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/PhelimXue/cg-pet-calculator-cloudflare)
 
 一個用於計算《魔力寶貝 - 永恆初心》遊戲中寵物成長檔次的純前端網頁工具。
 

@@ -294,6 +294,179 @@ function generateBPCombinations(bpRanges) {
 }
 
 /**
+ * 針對1等寵物的優化計算函數
+ * 1等寵物配點一定是0，只需枚舉掉檔(5^5=3125)和隨機檔(1001種)
+ */
+async function calculateLevel1Pet(baseGrow, targetStats, signal) {
+    const startTime = Date.now();
+
+    const allMatchedCombinations = [];
+    let totalChecked = 0;
+
+    // 生成所有掉檔組合 (5^5 = 3125)
+    const dropCombos = [];
+    function generateDrops(idx, current) {
+        if (idx === 5) {
+            dropCombos.push([...current]);
+            return;
+        }
+        for(let i = 0; i <= 4; i++) {
+            current[idx] = i;
+            generateDrops(idx + 1, current);
+        }
+    }
+    generateDrops(0, [0,0,0,0,0]);
+
+    // 過濾出有效的掉檔組合
+    const validDropCombos = dropCombos.filter(drop => {
+        for(let i = 0; i < 5; i++) {
+            if (baseGrow[i] - drop[i] < 0) return false;
+        }
+        return true;
+    });
+
+    // 遍歷所有有效的掉檔組合
+    for (let dIdx = 0; dIdx < validDropCombos.length; dIdx++) {
+        const drop = validDropCombos[dIdx];
+
+        // 每50次檢查是否需要中斷
+        if (dIdx % 50 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (signal && signal.aborted) {
+                throw new Error('ABORTED');
+            }
+        }
+
+        // ===== 剪枝優化：計算素質邊界 =====
+        const actualGrow = baseGrow.map((g, i) => g - drop[i]);
+
+        // 計算最小素質（隨機檔全0）
+        const actualBpMin = actualGrow.map(grow => fixPos(grow * BP_RATE));
+        const minRawResults = [];
+        for(let r = 0; r < 5; r++) {
+            let sum = 0;
+            for(let c = 0; c < 5; c++) {
+                sum += fixPos(MATRIX[r][c] * actualBpMin[c]);
+            }
+            minRawResults.push(fixPos(sum + BASE));
+        }
+
+        // 計算最大素質（隨機檔最佳分配）
+        const maxRandomBP = 10 * BP_RATE; // 2.0
+        const maxContribution = {
+            hp: MATRIX[0][0] * maxRandomBP,   // 體力對HP貢獻最大
+            mp: MATRIX[1][4] * maxRandomBP,   // 魔法對MP貢獻最大
+            atk: MATRIX[2][1] * maxRandomBP,  // 力量對ATK貢獻最大
+            def: MATRIX[3][2] * maxRandomBP,  // 強度對DEF貢獻最大
+            agi: MATRIX[4][3] * maxRandomBP   // 速度對AGI貢獻最大
+        };
+
+        const maxRawResults = [
+            minRawResults[0] + maxContribution.hp,
+            minRawResults[1] + maxContribution.mp,
+            minRawResults[2] + maxContribution.atk,
+            minRawResults[3] + maxContribution.def,
+            minRawResults[4] + maxContribution.agi
+        ];
+
+        // 檢查目標素質是否在可能範圍內
+        const canMatch = (
+            targetStats.hp >= Math.floor(minRawResults[0]) &&
+            targetStats.hp <= Math.floor(maxRawResults[0]) &&
+            targetStats.mp >= Math.floor(minRawResults[1]) &&
+            targetStats.mp <= Math.floor(maxRawResults[1]) &&
+            targetStats.atk >= Math.floor(minRawResults[2]) &&
+            targetStats.atk <= Math.floor(maxRawResults[2]) &&
+            targetStats.def >= Math.floor(minRawResults[3]) &&
+            targetStats.def <= Math.floor(maxRawResults[3]) &&
+            targetStats.agi >= Math.floor(minRawResults[4]) &&
+            targetStats.agi <= Math.floor(maxRawResults[4])
+        );
+
+        if (!canMatch) {
+            continue; // 這個掉檔組合無法匹配，直接跳過
+        }
+        // ===== 剪枝優化結束 =====
+
+        // 遍歷所有隨機檔組合 (總和=10，共1001種)
+        function generateRandomCombos(idx, currentRandom, remainingSum) {
+            if (idx === 5) {
+                // 檢查總和是否等於10
+                if (currentRandom.reduce((a, b) => a + b, 0) !== 10) return;
+
+                totalChecked++;
+
+                // 每10000次檢查一次中斷
+                if (totalChecked % 10000 === 0 && signal && signal.aborted) {
+                    throw new Error('ABORTED');
+                }
+
+                // 計算最終數值
+                const actualBp = actualGrow.map((grow, i) =>
+                    fixPos((grow + currentRandom[i]) * BP_RATE)
+                );
+
+                // BP 轉面板
+                const rawResults = [];
+                for(let r = 0; r < 5; r++) {
+                    let sum = 0;
+                    for(let c = 0; c < 5; c++) {
+                        sum += fixPos(MATRIX[r][c] * actualBp[c]);
+                    }
+                    rawResults.push(fixPos(sum + BASE));
+                }
+
+                // 檢查是否完全匹配
+                if (
+                    Math.floor(rawResults[0]) === targetStats.hp &&
+                    Math.floor(rawResults[1]) === targetStats.mp &&
+                    Math.floor(rawResults[2]) === targetStats.atk &&
+                    Math.floor(rawResults[3]) === targetStats.def &&
+                    Math.floor(rawResults[4]) === targetStats.agi
+                ) {
+                    allMatchedCombinations.push({
+                        dropCombo: [...drop],
+                        randomCombo: [...currentRandom],
+                        manualPoints: [0, 0, 0, 0, 0],
+                        stats: {
+                            hp: rawResults[0],
+                            mp: rawResults[1],
+                            atk: rawResults[2],
+                            def: rawResults[3],
+                            agi: rawResults[4]
+                        },
+                        totalError: 0,
+                        actualGrow: actualGrow
+                    });
+                }
+                return;
+            }
+
+            // 優化：使用剩餘總和來剪枝
+            const maxForThisSlot = Math.min(10, remainingSum);
+            for(let r = 0; r <= maxForThisSlot; r++) {
+                currentRandom[idx] = r;
+                generateRandomCombos(idx + 1, currentRandom, remainingSum - r);
+            }
+        }
+
+        try {
+            generateRandomCombos(0, [0,0,0,0,0], 10);
+        } catch (error) {
+            if (error.message === 'ABORTED') throw error;
+        }
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    return {
+        results: allMatchedCombinations,
+        executionTime: elapsed,
+        totalCombinationsTested: totalChecked
+    };
+}
+
+/**
  * 分析寵物素質，找出所有可能的組合
  */
 async function analyzePetStats(baseGrow, targetStats, level, remainingPoints, bpRate, signal) {
@@ -455,5 +628,11 @@ async function analyzePetStats(baseGrow, targetStats, level, remainingPoints, bp
  * 主要導出函數，與原 logic.js 接口兼容
  */
 export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLevel, bpRateVal, maxResults, remainingPoints, errorTolerance, signal) {
+    // 如果是1等寵物，使用優化的計算方式（只枚舉5^5*1001種組合）
+    if (petLevel === 1) {
+        return await calculateLevel1Pet(baseGrow, targetStats, signal);
+    }
+
+    // 其他等級使用通用分析函數
     return await analyzePetStats(baseGrow, targetStats, petLevel, remainingPoints, bpRateVal, signal);
 }
