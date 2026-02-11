@@ -636,11 +636,16 @@
                 });
             });
 
-            // 只收集必定掉檔的屬性（min === max）
+            // 統計必定掉檔與「至少掉檔」
             const certainDrops = [];
             attrDropRanges.forEach((range, i) => {
+                // 明確必定是某個值，且大於0
                 if (range.min === range.max && range.min > 0) {
                     certainDrops.push(`${ATTR_NAMES[i]}必定-${range.min}`);
+                } 
+                // 雖然不是定值，但最小值大於0 (例如 min=3, max=4 => 必定-3以上)
+                else if (range.min > 0) {
+                    certainDrops.push(`${ATTR_NAMES[i]}至少-${range.min}`);
                 }
             });
 
