@@ -249,6 +249,7 @@
 
         // === 寵物資料與搜尋 ===
         let petData = [];
+        let growToNameMap = {}; // 新增：成長檔到名稱的反向索引
 
         async function initPetData() {
             try {
@@ -263,6 +264,20 @@
 
                 petData = Object.entries(json).map(([key, value]) => {
                     const simpleName = converter ? converter(key) : key;
+                    
+                    // --- 建立反向索引邏輯 ---
+                    // 將成長檔字串去除空格，確保格式統一 ("22,26..." 或 "22 26..." 都對應到同一個 key)
+                    // JSON 原始格式假設為逗號分隔 "22,26,17,19,16"
+                    const rawGrow = value.grow;
+                    // 為了方便比對，統一轉成 "數字,數字..." (去除可能存在的空格)
+                    const normalizedGrowKey = rawGrow.replace(/\s+/g, '');
+
+                    if (!growToNameMap[normalizedGrowKey]) {
+                        growToNameMap[normalizedGrowKey] = [];
+                    }
+                    growToNameMap[normalizedGrowKey].push(key);
+                    // ------------------------
+
                     return {
                         name: key,
                         searchKey: simpleName,
@@ -298,6 +313,25 @@
         const searchInput = document.getElementById('petSearch');
         const resultsContainer = document.getElementById('search-results-container');
         const baseGrowInput = document.getElementById('baseGrow');
+
+        // === 新增：監聽 BaseGrow 輸入變動，反向填充寵物名稱 ===
+        baseGrowInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            // 處理使用者輸入：去除頭尾空格、將連續空格或全/半形逗號轉為單一逗號，以便產生 Key
+            // 例如 "22 26 17 19 16" -> "22,26,17,19,16"
+            const lookupKey = val.trim()
+                .split(/[\s,，]+/) // 依照空白或逗號切割
+                .join(',');        // 重新組合成逗號分隔字串
+            
+            // 由於 JSON Key 是不含空格的逗號分隔字串
+            if (growToNameMap[lookupKey]) {
+                searchInput.value = growToNameMap[lookupKey].join(' / ');
+                // 視覺回饋
+                searchInput.style.borderColor = "#198754"; // 綠色邊框表示匹配成功
+                setTimeout(() => searchInput.style.borderColor = "", 1000);
+            }
+        });
+        // ==================================================
 
         searchInput.addEventListener('input', async (e) => {
             const term = e.target.value.trim();
