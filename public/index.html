@@ -133,27 +133,16 @@
                 </div>
 
                 <form id="calculatorForm">
-                    <!-- 第一行：成長檔(左) | 成長率 | 誤差 -->
+                    <!-- 第一行：成長檔(左) | 成長率 -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-8">
                             <label for="baseGrow" class="form-label">寵物成長檔 (體 力 強 速 魔)</label>
                             <input type="text" class="form-control" id="baseGrow" placeholder="例如: 36 38 34 11 6" required>
                             <small class="form-text text-muted">格式：五個數字，用空格或逗號分隔</small>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label for="bpRateVal" class="form-label">成長率 (%)</label>
                             <input type="number" class="form-control" id="bpRateVal" value="20" min="1" max="100" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="errorTolerance" class="form-label">允許誤差</label>
-                            <select class="form-select" id="errorTolerance" required>
-                                <option value="-1" selected>智能</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                            </select>
                         </div>
                     </div>
 
@@ -219,7 +208,6 @@
                 <span class="visually-hidden">計算中...</span>
             </div>
             <p class="mt-2 text-primary fw-bold">正在計算中，請稍候...</p>
-            <p class="mt-1 text-muted small">若計算時間過久，可能是誤差範圍過大導致窮舉量激增</p>
             <!-- 中斷按鈕 -->
             <button type="button" class="btn btn-danger mt-2" id="cancelBtn">
                 ⛔ 中斷計算
@@ -249,7 +237,6 @@
             // 載入基本參數
             if (params.has('baseGrow')) document.getElementById('baseGrow').value = params.get('baseGrow');
             if (params.has('bpRateVal')) document.getElementById('bpRateVal').value = params.get('bpRateVal');
-            if (params.has('errorTolerance')) document.getElementById('errorTolerance').value = params.get('errorTolerance');
             if (params.has('petLevel')) document.getElementById('petLevel').value = params.get('petLevel');
             if (params.has('remainingPoints')) document.getElementById('remainingPoints').value = params.get('remainingPoints');
             if (params.has('targetStats')) document.getElementById('targetStats').value = params.get('targetStats');
@@ -275,7 +262,6 @@
             // 收集所有參數
             params.set('baseGrow', document.getElementById('baseGrow').value);
             params.set('bpRateVal', document.getElementById('bpRateVal').value);
-            params.set('errorTolerance', document.getElementById('errorTolerance').value);
             params.set('petLevel', document.getElementById('petLevel').value);
             params.set('remainingPoints', document.getElementById('remainingPoints').value);
             params.set('targetStats', document.getElementById('targetStats').value);
@@ -468,7 +454,6 @@
                     const bpRateVal = parseInt(document.getElementById('bpRateVal').value);
                     const petLevel = parseInt(document.getElementById('petLevel').value);
                     const remainingPoints = parseInt(document.getElementById('remainingPoints').value);
-                    const errorTolerance = parseInt(document.getElementById('errorTolerance').value);
 
                     if (baseGrow.length !== 5) throw new Error('寵物成長檔必須包含 5 個數值');
                     if (targetStatsArray.length !== 5) throw new Error('寵物素質必須包含 5 個數值');
@@ -508,7 +493,7 @@
                             bpRateVal / 100,
                             0,
                             remainingPoints,
-                            errorTolerance,
+                            null,
                             abortController.signal
                         );
 
@@ -520,7 +505,7 @@
                             bpRateVal / 100,
                             0,
                             remainingPoints2,
-                            errorTolerance,
+                            null,
                             abortController.signal
                         );
 
@@ -546,7 +531,7 @@
                             bpRateVal / 100,
                             0,
                             remainingPoints,
-                            errorTolerance,
+                            null,
                             abortController.signal
                         );
 
@@ -566,7 +551,7 @@
                         document.getElementById('results').innerHTML = `
                             <div class="alert alert-warning border border-warning">
                                 <h4>🛑 已中斷計算</h4>
-                                <p class="mb-0">您已手動停止運算。若運算過久，建議檢查輸入數值是否正確（例如是否忘記脫裝備），或者將「允許誤差」設為智能。</p>
+                                <p class="mb-0">您已手動停止運算。若運算過久，建議檢查輸入數值是否正確（例如是否忘記脫裝備）。</p>
                             </div>
                         `;
                     } else {
@@ -626,9 +611,9 @@
                 let warningMessage = '<strong>未找到符合條件的組合</strong>';
                 if (summary.isIntersection) {
                     warningMessage += `<p class="mb-0">第一組找到 ${summary.set1Count} 個組合，第二組找到 ${summary.set2Count} 個組合，但兩者沒有交集。</p>`;
-                    warningMessage += '<p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>';
+                    warningMessage += '<p class="mb-0">請嘗試調整參數。</p>';
                 } else {
-                    warningMessage += '<p class="mb-0">請嘗試調整參數或增加允許誤差值。</p>';
+                    warningMessage += '<p class="mb-0">請嘗試調整參數。</p>';
                 }
                 document.getElementById('results').innerHTML = `
                     ${shareButtonHTML}
@@ -663,7 +648,7 @@
                         ${intersectionInfo}
 
                         <div class="summary-stats">
-                            <h6>找到 ${summary.totalMatches} 個最小誤差的組合（總誤差 ${data[0].totalError}）</h6>
+                            <h6>找到 ${summary.totalMatches} 個符合條件的組合</h6>
                             <p class="mb-2"><strong>執行時間：</strong>${summary.executionTime} 秒</p>
                             <p class="mb-0"><strong>測試組合數：</strong>${summary.totalCombinationsTested.toLocaleString()}</p>
                         </div>
