@@ -1,12 +1,8 @@
 /*
- * 寵物素質完整分析器
+ * 寵物素質完整分析器 (Web Worker / Async Optimized Version)
  * 整合所有反算功能的統一程式
- *
- * 功能：
- * 1. 輸入：檔次、等級、成長率、剩餘點數、目標素質
- * 2. 輸出：實際檔次、隨機檔、配點模式
- *
- * 使用高斯消去法 + 快速窮舉，速度快且精確
+ * 
+ * 優化：使用時間切片 (Time Slicing) 避免瀏覽器無回應
  */
 
 // ==========================================
@@ -51,12 +47,9 @@ function fixPos(n) {
 }
 
 // ==========================================
-// 3. 高斯消去法（矩陣求解）
+// 3. 高斯消去法與核心反算
 // ==========================================
 
-/**
- * 高斯消去法求解 Ax = B
- */
 function solveLinearSystem(A, B) {
     let n = A.length;
     let mat = A.map(row => [...row]);
@@ -89,130 +82,74 @@ function solveLinearSystem(A, B) {
     return result;
 }
 
-// ==========================================
-// 4. BP 計算函數（正算）
-// ==========================================
-
 /**
- * BP 轉換為素質
+ * BP 轉換為素質 (正算验证用)
  */
 function bpToStats(bpArray) {
-    const hp = fixPos(
-        fixPos(
-            fixPos(MATRIX[0][0] * bpArray[0]) +
-            fixPos(MATRIX[0][1] * bpArray[1]) +
-            fixPos(MATRIX[0][2] * bpArray[2]) +
-            fixPos(MATRIX[0][3] * bpArray[3]) +
-            fixPos(MATRIX[0][4] * bpArray[4])
-        ) + BASE
-    );
+    const calc = (row) => fixPos(
+        fixPos(MATRIX[row][0] * bpArray[0]) +
+        fixPos(MATRIX[row][1] * bpArray[1]) +
+        fixPos(MATRIX[row][2] * bpArray[2]) +
+        fixPos(MATRIX[row][3] * bpArray[3]) +
+        fixPos(MATRIX[row][4] * bpArray[4])
+    ) + BASE;
 
-    const mp = fixPos(
-        fixPos(
-            fixPos(MATRIX[1][0] * bpArray[0]) +
-            fixPos(MATRIX[1][1] * bpArray[1]) +
-            fixPos(MATRIX[1][2] * bpArray[2]) +
-            fixPos(MATRIX[1][3] * bpArray[3]) +
-            fixPos(MATRIX[1][4] * bpArray[4])
-        ) + BASE
-    );
-
-    const atk = fixPos(
-        fixPos(
-            fixPos(MATRIX[2][0] * bpArray[0]) +
-            fixPos(MATRIX[2][1] * bpArray[1]) +
-            fixPos(MATRIX[2][2] * bpArray[2]) +
-            fixPos(MATRIX[2][3] * bpArray[3]) +
-            fixPos(MATRIX[2][4] * bpArray[4])
-        ) + BASE
-    );
-
-    const def = fixPos(
-        fixPos(
-            fixPos(MATRIX[3][0] * bpArray[0]) +
-            fixPos(MATRIX[3][1] * bpArray[1]) +
-            fixPos(MATRIX[3][2] * bpArray[2]) +
-            fixPos(MATRIX[3][3] * bpArray[3]) +
-            fixPos(MATRIX[3][4] * bpArray[4])
-        ) + BASE
-    );
-
-    const agi = fixPos(
-        fixPos(
-            fixPos(MATRIX[4][0] * bpArray[0]) +
-            fixPos(MATRIX[4][1] * bpArray[1]) +
-            fixPos(MATRIX[4][2] * bpArray[2]) +
-            fixPos(MATRIX[4][3] * bpArray[3]) +
-            fixPos(MATRIX[4][4] * bpArray[4])
-        ) + BASE
-    );
-
-    return { hp, mp, atk, def, agi };
+    return {
+        hp: fixPos(calc(0)),
+        mp: fixPos(calc(1)),
+        atk: fixPos(calc(2)),
+        def: fixPos(calc(3)),
+        agi: fixPos(calc(4))
+    };
 }
 
 /**
- * 計算寵物素質（正算）
+ * 計算寵物素質（正算流程）
  */
 function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints) {
     const lvldiff = petLevel - 1;
 
-    // 計算基礎 BP
-    const baseBp = petGrow.map((grow) => {
-        return fixPos(grow * BP_RATE + getRate(grow) * lvldiff);
-    });
+    // 基礎 BP
+    const baseBp = petGrow.map((grow) => fixPos(grow * BP_RATE + getRate(grow) * lvldiff));
 
-    // 計算實際 BP（加上隨機檔和配點）
-    const actualBp = baseBp.map((bp, i) => {
-        return fixPos(bp + manualPoints[i] + BP_RATE * randomGrow[i]);
-    });
+    // 實際 BP
+    const actualBp = baseBp.map((bp, i) => fixPos(bp + manualPoints[i] + BP_RATE * randomGrow[i]));
 
-    // 轉換為素質
+    // 轉面板
     const stats = bpToStats(actualBp);
 
-    return {
-        baseBp,
-        actualBp,
-        stats
-    };
+    return { baseBp, actualBp, stats };
 }
 
 // ==========================================
-// 5. 組合生成器
+// 4. 組合生成與範圍計算
 // ==========================================
 
-/**
- * 生成所有掉檔組合（0-4檔）
- */
-function generateAllDropCombinations() {
+// 預先生成，避免重複計算
+let CACHED_DROP_COMBOS = null;
+let CACHED_RANDOM_COMBOS = null;
+
+function getDropCombos() {
+    if (CACHED_DROP_COMBOS) return CACHED_DROP_COMBOS;
     const results = [];
-    for (let t = 0; t <= 4; t++) {
-        for (let l = 0; l <= 4; l++) {
-            for (let q = 0; q <= 4; q++) {
-                for (let s = 0; s <= 4; s++) {
-                    for (let m = 0; m <= 4; m++) {
+    for (let t = 0; t <= 4; t++) 
+        for (let l = 0; l <= 4; l++) 
+            for (let q = 0; q <= 4; q++) 
+                for (let s = 0; s <= 4; s++) 
+                    for (let m = 0; m <= 4; m++) 
                         results.push([t, l, q, s, m]);
-                    }
-                }
-            }
-        }
-    }
+    CACHED_DROP_COMBOS = results;
     return results;
 }
 
-/**
- * 生成所有隨機檔組合（總和為10）
- */
-function generateAllRandomCombinations() {
+function getRandomCombos() {
+    if (CACHED_RANDOM_COMBOS) return CACHED_RANDOM_COMBOS;
     const results = [];
-
     function backtrack(current, remaining, index) {
         if (index === 5) {
-            if (remaining === 0) {
-                results.push([...current]);
-            }
+            if (remaining === 0) results.push([...current]);
             return;
         }
-
         const maxVal = Math.min(remaining, 10);
         for (let i = 0; i <= maxVal; i++) {
             current.push(i);
@@ -220,369 +157,166 @@ function generateAllRandomCombinations() {
             current.pop();
         }
     }
-
     backtrack([], 10, 0);
+    CACHED_RANDOM_COMBOS = results;
     return results;
 }
 
-// ==========================================
-// 6. 核心分析函數
-// ==========================================
-
 /**
- * 計算 BP 的可能範圍
- * 因為遊戲顯示的素質是 floor 後的整數，真實素質有小數部分
+ * 修正版的 BP 範圍計算 (解決矩陣負係數問題)
  */
 function calculateBPRanges(displayStats, tolerance = 0.9999) {
-    // 計算最小 BP（使用顯示值）
-    const minStatsArray = [
-        displayStats.hp,
-        displayStats.mp,
-        displayStats.atk,
-        displayStats.def,
-        displayStats.agi
-    ];
-    const minB = minStatsArray.map(v => v - BASE);
-    const minBP = solveLinearSystem(MATRIX, minB);
+    const bVecA = [displayStats.hp, displayStats.mp, displayStats.atk, displayStats.def, displayStats.agi].map(v => v - BASE);
+    const resultA = solveLinearSystem(MATRIX, bVecA);
 
-    // 計算最大 BP（使用顯示值 + 誤差）
-    const maxStatsArray = [
-        displayStats.hp + tolerance,
-        displayStats.mp + tolerance,
-        displayStats.atk + tolerance,
-        displayStats.def + tolerance,
-        displayStats.agi + tolerance
-    ];
-    const maxB = maxStatsArray.map(v => v - BASE);
-    const maxBP = solveLinearSystem(MATRIX, maxB);
+    const bVecB = [displayStats.hp + tolerance, displayStats.mp + tolerance, displayStats.atk + tolerance, displayStats.def + tolerance, displayStats.agi + tolerance].map(v => v - BASE);
+    const resultB = solveLinearSystem(MATRIX, bVecB);
 
-    // 計算每個 BP 的可能整數範圍
     const bpRanges = [];
     for (let i = 0; i < 5; i++) {
-        const minFloor = Math.floor(minBP[i]);
-        const maxFloor = Math.floor(maxBP[i]);
+        const val1 = resultA[i];
+        const val2 = resultB[i];
+        const realMinBP = Math.min(val1, val2);
+        const realMaxBP = Math.max(val1, val2);
+        
+        const minFloor = Math.floor(realMinBP);
+        const maxFloor = Math.floor(realMaxBP);
+
         const possibleValues = [];
         for (let j = minFloor; j <= maxFloor; j++) {
             possibleValues.push(j);
         }
         bpRanges.push(possibleValues);
     }
-
     return bpRanges;
 }
 
-/**
- * 生成所有可能的 BP 組合
- */
 function generateBPCombinations(bpRanges) {
     const results = [];
-
     function backtrack(index, current) {
         if (index === 5) {
             results.push([...current]);
             return;
         }
-
         for (const value of bpRanges[index]) {
             current[index] = value;
             backtrack(index + 1, current);
         }
     }
-
     backtrack(0, [0, 0, 0, 0, 0]);
     return results;
 }
 
-/**
- * 針對1等寵物的優化計算函數
- * 1等寵物配點一定是0，只需枚舉掉檔(5^5=3125)和隨機檔(1001種)
- */
-async function calculateLevel1Pet(baseGrow, targetStats, signal) {
-    const startTime = Date.now();
-
-    const allMatchedCombinations = [];
-    let totalChecked = 0;
-
-    // 生成所有掉檔組合 (5^5 = 3125)
-    const dropCombos = [];
-    function generateDrops(idx, current) {
-        if (idx === 5) {
-            dropCombos.push([...current]);
-            return;
-        }
-        for(let i = 0; i <= 4; i++) {
-            current[idx] = i;
-            generateDrops(idx + 1, current);
-        }
-    }
-    generateDrops(0, [0,0,0,0,0]);
-
-    // 過濾出有效的掉檔組合
-    const validDropCombos = dropCombos.filter(drop => {
-        for(let i = 0; i < 5; i++) {
-            if (baseGrow[i] - drop[i] < 0) return false;
-        }
-        return true;
-    });
-
-    // 遍歷所有有效的掉檔組合
-    for (let dIdx = 0; dIdx < validDropCombos.length; dIdx++) {
-        const drop = validDropCombos[dIdx];
-
-        // 每50次檢查是否需要中斷
-        if (dIdx % 50 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
-            if (signal && signal.aborted) {
-                throw new Error('ABORTED');
-            }
-        }
-
-        // ===== 剪枝優化：計算素質邊界 =====
-        const actualGrow = baseGrow.map((g, i) => g - drop[i]);
-
-        // 計算最小素質（隨機檔全0）
-        const actualBpMin = actualGrow.map(grow => fixPos(grow * BP_RATE));
-        const minRawResults = [];
-        for(let r = 0; r < 5; r++) {
-            let sum = 0;
-            for(let c = 0; c < 5; c++) {
-                sum += fixPos(MATRIX[r][c] * actualBpMin[c]);
-            }
-            minRawResults.push(fixPos(sum + BASE));
-        }
-
-        // 計算最大素質（隨機檔最佳分配）
-        const maxRandomBP = 10 * BP_RATE; // 2.0
-        const maxContribution = {
-            hp: MATRIX[0][0] * maxRandomBP,   // 體力對HP貢獻最大
-            mp: MATRIX[1][4] * maxRandomBP,   // 魔法對MP貢獻最大
-            atk: MATRIX[2][1] * maxRandomBP,  // 力量對ATK貢獻最大
-            def: MATRIX[3][2] * maxRandomBP,  // 強度對DEF貢獻最大
-            agi: MATRIX[4][3] * maxRandomBP   // 速度對AGI貢獻最大
-        };
-
-        const maxRawResults = [
-            minRawResults[0] + maxContribution.hp,
-            minRawResults[1] + maxContribution.mp,
-            minRawResults[2] + maxContribution.atk,
-            minRawResults[3] + maxContribution.def,
-            minRawResults[4] + maxContribution.agi
-        ];
-
-        // 檢查目標素質是否在可能範圍內
-        const canMatch = (
-            targetStats.hp >= Math.floor(minRawResults[0]) &&
-            targetStats.hp <= Math.floor(maxRawResults[0]) &&
-            targetStats.mp >= Math.floor(minRawResults[1]) &&
-            targetStats.mp <= Math.floor(maxRawResults[1]) &&
-            targetStats.atk >= Math.floor(minRawResults[2]) &&
-            targetStats.atk <= Math.floor(maxRawResults[2]) &&
-            targetStats.def >= Math.floor(minRawResults[3]) &&
-            targetStats.def <= Math.floor(maxRawResults[3]) &&
-            targetStats.agi >= Math.floor(minRawResults[4]) &&
-            targetStats.agi <= Math.floor(maxRawResults[4])
-        );
-
-        if (!canMatch) {
-            continue; // 這個掉檔組合無法匹配，直接跳過
-        }
-        // ===== 剪枝優化結束 =====
-
-        // 遍歷所有隨機檔組合 (總和=10，共1001種)
-        function generateRandomCombos(idx, currentRandom, remainingSum) {
-            if (idx === 5) {
-                // 檢查總和是否等於10
-                if (currentRandom.reduce((a, b) => a + b, 0) !== 10) return;
-
-                totalChecked++;
-
-                // 每10000次檢查一次中斷
-                if (totalChecked % 10000 === 0 && signal && signal.aborted) {
-                    throw new Error('ABORTED');
-                }
-
-                // 計算最終數值
-                const actualBp = actualGrow.map((grow, i) =>
-                    fixPos((grow + currentRandom[i]) * BP_RATE)
-                );
-
-                // BP 轉面板
-                const rawResults = [];
-                for(let r = 0; r < 5; r++) {
-                    let sum = 0;
-                    for(let c = 0; c < 5; c++) {
-                        sum += fixPos(MATRIX[r][c] * actualBp[c]);
-                    }
-                    rawResults.push(fixPos(sum + BASE));
-                }
-
-                // 檢查是否完全匹配
-                if (
-                    Math.floor(rawResults[0]) === targetStats.hp &&
-                    Math.floor(rawResults[1]) === targetStats.mp &&
-                    Math.floor(rawResults[2]) === targetStats.atk &&
-                    Math.floor(rawResults[3]) === targetStats.def &&
-                    Math.floor(rawResults[4]) === targetStats.agi
-                ) {
-                    allMatchedCombinations.push({
-                        dropCombo: [...drop],
-                        randomCombo: [...currentRandom],
-                        manualPoints: [0, 0, 0, 0, 0],
-                        stats: {
-                            hp: rawResults[0],
-                            mp: rawResults[1],
-                            atk: rawResults[2],
-                            def: rawResults[3],
-                            agi: rawResults[4]
-                        },
-                        totalError: 0,
-                        actualGrow: actualGrow
-                    });
-                }
-                return;
-            }
-
-            // 優化：使用剩餘總和來剪枝
-            const maxForThisSlot = Math.min(10, remainingSum);
-            for(let r = 0; r <= maxForThisSlot; r++) {
-                currentRandom[idx] = r;
-                generateRandomCombos(idx + 1, currentRandom, remainingSum - r);
-            }
-        }
-
-        try {
-            generateRandomCombos(0, [0,0,0,0,0], 10);
-        } catch (error) {
-            if (error.message === 'ABORTED') throw error;
-        }
-    }
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-
-    return {
-        results: allMatchedCombinations,
-        executionTime: elapsed,
-        totalCombinationsTested: totalChecked
-    };
-}
+// ==========================================
+// 5. Async 核心邏輯 (支持中斷與進度)
+// ==========================================
 
 /**
- * 分析寵物素質，找出所有可能的組合
+ * 主要分析函數
  */
-async function analyzePetStats(baseGrow, targetStats, level, remainingPoints, bpRate, signal) {
-    const startTime = Date.now();
+export async function smartReverseCalculateMatrix(
+    baseGrow, 
+    targetStats, 
+    level, 
+    bpRate, 
+    maxResults, // 暫不使用，保留參數接口
+    remainingPoints, 
+    errorTolerance, // 暫不使用
+    signal // AbortSignal
+) {
+    const startTime = performance.now();
+    let lastYieldTime = startTime;
+    const YIELD_INTERVAL = 30; // 每 30ms 讓出一次 CPU
 
-    // 計算 BP 的可能範圍
+    // 1. 計算 BP 範圍
     const bpRanges = calculateBPRanges(targetStats);
-    const bpCombinations = generateBPCombinations(bpRanges);
+    
+    // 如果計算出的範圍不合理 (例如是負數，或者範圍是空的)，提早結束
+    if (bpRanges.some(r => r.length === 0)) {
+        return { results: [], executionTime: 0, totalCombinationsTested: 0 };
+    }
 
-    const dropCombos = generateAllDropCombinations();
-    const randomCombos = generateAllRandomCombinations();
+    const bpCombinations = generateBPCombinations(bpRanges);
+    
+    const dropCombos = getDropCombos();
+    const randomCombos = getRandomCombos();
     const totalAllocatable = level - 1 - remainingPoints;
     const requireExactAllocation = (remainingPoints === 0);
 
     const allMatchedCombinations = [];
     let totalChecked = 0;
 
-    // 對每個可能的 BP 組合進行分析
+    // === 開始窮舉分析 ===
+    
     for (let bpIndex = 0; bpIndex < bpCombinations.length; bpIndex++) {
         const targetBPFloored = bpCombinations[bpIndex];
 
-        let checked = 0;
+        // 遍歷所有掉檔組合 (3125種)
+        for (let dIdx = 0; dIdx < dropCombos.length; dIdx++) {
+            const drops = dropCombos[dIdx];
 
-        for (const drops of dropCombos) {
-            // 每50個掉檔組合檢查一次中斷信號
-            if (checked % 50 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-                if (signal && signal.aborted) {
-                    throw new Error('ABORTED');
+            // --- 效能關鍵：時間切片 ---
+            // 每處理 200 個掉檔組合檢查一次時間，避免頻繁呼叫 performance.now()
+            if (dIdx % 200 === 0) {
+                const now = performance.now();
+                if (now - lastYieldTime > YIELD_INTERVAL) {
+                    await new Promise(r => setTimeout(r, 0)); // 讓出 CPU
+                    lastYieldTime = performance.now();
+                    
+                    // 檢查是否取消
+                    if (signal && signal.aborted) throw new Error('ABORTED');
                 }
             }
+            // -----------------------
 
-            // ===== 剪枝策略 1：快速預檢 =====
             const actualGrow = baseGrow.map((g, i) => g - drops[i]);
+            // 如果掉檔導致成長檔變成負數，這是不可能的，跳過 (有些極端資料庫可能允許0，但通常不會負)
+            if (actualGrow.some(g => g < 0)) continue;
+
             const lvldiff = level - 1;
 
-            // 計算基礎 BP（無隨機檔、無配點）
-            const baseBP = actualGrow.map((grow) => {
-                return fixPos(grow * bpRate + getRate(grow) * lvldiff);
-            });
+            // 計算基礎 BP
+            const baseBP = actualGrow.map(g => fixPos(g * bpRate + getRate(g) * lvldiff));
+            const minBP = baseBP.map(bp => Math.floor(bp)); // 隨機檔0、加點0
+            
+            // 剪枝 1: 基礎 BP 已經超過目標 BP
+            if (baseBP.some((bp, i) => Math.floor(bp) > targetBPFloored[i])) continue;
 
-            // 最小可能 BP：隨機檔 = 0，無配點
-            const minBP = baseBP.map(bp => Math.floor(bp));
-
-            // 最大可能 BP
-            const maxBP = baseBP.map(bp => Math.floor(fixPos(bp + bpRate * 10)) + totalAllocatable);
-
-            // 剪枝檢查 1：單個屬性範圍檢查
-            let canReach = true;
-            for (let i = 0; i < 5; i++) {
-                if (maxBP[i] < targetBPFloored[i] || minBP[i] > targetBPFloored[i]) {
-                    canReach = false;
-                    break;
-                }
-            }
-
-            if (!canReach) {
-                continue;
-            }
-
-            // 剪枝檢查 2：總和檢查
+            // 剪枝 2: 需要的配點量過大 Check
             const needExtra = targetBPFloored.map((target, i) => Math.max(0, target - minBP[i]));
             const totalNeedExtra = needExtra.reduce((a, b) => a + b, 0);
-            const maxExtra = 3 + totalAllocatable;
+            
+            // 隨機檔最大提供 10 * 0.2 = 2 BP，算上浮點誤差給寬限到 3
+            if (totalNeedExtra > (totalAllocatable + 3)) continue;
 
-            if (totalNeedExtra > maxExtra) {
-                continue;
-            }
-
-            // 剪枝檢查 3：檢查是否任何屬性的基礎 BP 明顯超過目標
-            if (baseBP.some((bp, i) => Math.floor(bp) > targetBPFloored[i])) {
-                continue;
-            }
-
-            // 如果通過預檢，則枚舉隨機檔
+            // 進入隨機檔迴圈 (1001種)
             for (const randoms of randomCombos) {
-                checked++;
-
-                // 每10000次檢查一次中斷信號
-                if (checked % 10000 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 0));
-                    if (signal && signal.aborted) {
-                        throw new Error('ABORTED');
-                    }
-                }
-
-                // 剪枝檢查 4：隨機檔快速預檢
+                totalChecked++;
+                
+                // 計算此組合下的「無加點」BP
                 const bpNoAlloc = actualGrow.map((grow, i) => {
-                    const baseBp = fixPos(grow * bpRate + getRate(grow) * lvldiff);
-                    const withRandom = fixPos(baseBp + bpRate * randoms[i]);
-                    return Math.floor(withRandom);
+                    const b = fixPos(grow * bpRate + getRate(grow) * lvldiff);
+                    return Math.floor(fixPos(b + bpRate * randoms[i]));
                 });
 
-                // 計算需要的配點
+                // 計算需要的加點
                 const neededAlloc = targetBPFloored.map((target, i) => target - bpNoAlloc[i]);
 
-                // 快速檢查：如果任何屬性需要負配點，直接跳過
-                if (neededAlloc.some(v => v < 0)) {
-                    continue;
-                }
+                // 條件 1: 加點不能為負
+                if (neededAlloc.some(v => v < 0)) continue;
 
                 const totalNeeded = neededAlloc.reduce((a, b) => a + b, 0);
 
-                // 快速檢查：配點總和是否超過可用配點
-                if (totalNeeded > totalAllocatable) {
-                    continue;
+                // 條件 2: 加點總和檢查
+                // 如果需要精確配點 (剩餘點數為0)，則必須相等；否則只要小於等於
+                if (requireExactAllocation) {
+                    if (totalNeeded !== totalAllocatable) continue;
+                } else {
+                    if (totalNeeded > totalAllocatable) continue;
                 }
 
-                // 如果要求精確配點，檢查配點總和是否剛好等於可用配點
-                if (requireExactAllocation && totalNeeded !== totalAllocatable) {
-                    continue;
-                }
-
-                // 使用正算驗證
+                // 最終驗證：正算一次確保浮點數轉換無誤
                 const result = calculatePetStats(actualGrow, randoms, level, neededAlloc);
-
                 const flooredStats = {
                     hp: Math.floor(result.stats.hp),
                     mp: Math.floor(result.stats.mp),
@@ -591,7 +325,6 @@ async function analyzePetStats(baseGrow, targetStats, level, remainingPoints, bp
                     agi: Math.floor(result.stats.agi)
                 };
 
-                // 檢查是否完全匹配
                 if (
                     flooredStats.hp === targetStats.hp &&
                     flooredStats.mp === targetStats.mp &&
@@ -599,40 +332,23 @@ async function analyzePetStats(baseGrow, targetStats, level, remainingPoints, bp
                     flooredStats.def === targetStats.def &&
                     flooredStats.agi === targetStats.agi
                 ) {
-                    const totalDrop = drops.reduce((a, b) => a + b, 0);
                     allMatchedCombinations.push({
                         dropCombo: drops,
                         randomCombo: randoms,
                         manualPoints: neededAlloc,
                         stats: result.stats,
-                        totalError: 0,  // 完全匹配，誤差為0
+                        totalError: 0,
                         actualGrow: actualGrow
                     });
                 }
             }
         }
-
-        totalChecked += checked;
     }
 
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-
+    const endTime = performance.now();
     return {
         results: allMatchedCombinations,
-        executionTime: elapsed,
+        executionTime: ((endTime - startTime) / 1000).toFixed(2),
         totalCombinationsTested: totalChecked
     };
-}
-
-/**
- * 主要導出函數，與原 logic.js 接口兼容
- */
-export async function smartReverseCalculateMatrix(baseGrow, targetStats, petLevel, bpRateVal, maxResults, remainingPoints, errorTolerance, signal) {
-    // 如果是1等寵物，使用優化的計算方式（只枚舉5^5*1001種組合）
-    if (petLevel === 1) {
-        return await calculateLevel1Pet(baseGrow, targetStats, signal);
-    }
-
-    // 其他等級使用通用分析函數
-    return await analyzePetStats(baseGrow, targetStats, petLevel, remainingPoints, bpRateVal, signal);
 }
