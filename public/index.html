@@ -475,8 +475,28 @@
                 return;
             }
 
-            const groupedResults = groupByDropAndManual(data);
-            const dropStats = calculateDropStats(data, baseGrow);
+            // === 新增：應用最佳配點策略過濾 ===
+            const originalCount = data.length;
+            const filteredData = filterBestStrategies(data);
+            const filteredCount = filteredData.length;
+            // ===============================
+
+            const groupedResults = groupByDropAndManual(filteredData);
+            const dropStats = calculateDropStats(filteredData, baseGrow);
+
+            // 提示訊息：如果過濾掉了某些結果，顯示提示
+            let filterMsg = '';
+            if (filteredCount < originalCount) {
+                filterMsg = `
+                    <div class="alert alert-secondary border-start border-4 border-secondary">
+                        <strong>⚡ 智能過濾啟用</strong>
+                        <br>
+                        系統找到 ${originalCount} 種可能，已自動過濾非主流配點（如雜亂混點）。
+                        <br>
+                        目前顯示 <strong>${filteredCount}</strong> 種符合「集中配點策略」的結果。
+                    </div>
+                `;
+            }
 
             let html = `
                 ${shareButtonHTML}
@@ -485,26 +505,83 @@
                         <h5 class="card-title">計算結果</h5>
 
                         <div class="summary-stats">
-                            <h6>找到 ${summary.totalMatches} 個符合條件的組合</h6>
+                            <h6>符合條件：${filteredCount} (原始搜尋: ${originalCount})</h6>
                             <p class="mb-2"><strong>執行時間：</strong>${summary.executionTime} 秒</p>
                             <p class="mb-0"><strong>測試組合數：</strong>${summary.totalCombinationsTested.toLocaleString()}</p>
                         </div>
 
+                        ${filterMsg}
+
                         <div class="alert alert-info">
-                            <h6 class="alert-heading">掉檔統計</h6>
+                            <h6 class="alert-heading">掉檔統計 (基於顯示結果)</h6>
                             <p class="mb-2"><strong>總掉檔落在 ${dropStats.totalDropRange.min}-${dropStats.totalDropRange.max} 檔</strong></p>
                             ${dropStats.certainDrops.length > 0
                                 ? `<p class="mb-0">各屬性：${dropStats.certainDrops.join('、')}</p>`
                                 : '<p class="mb-0 text-muted">各屬性掉檔不確定</p>'}
                         </div>
 
-                        <h6 class="mt-4 mb-3">找到 ${Object.keys(groupedResults).length} 個符合條件的組合</h6>
-                        ${renderGroupedResults(groupedResults, data.length)}
+                        <h6 class="mt-4 mb-3">顯示 ${Object.keys(groupedResults).length} 組結果</h6>
+                        ${renderGroupedResults(groupedResults, filteredCount)}
                     </div>
                 </div>
             `;
 
             document.getElementById('results').innerHTML = html;
+        }
+
+        /**
+         * 過濾邏輯：只保留「最集中」的配點方式
+         * 1. 將配點由大到小排序 (例如 [21, 60, 0, 0, 0] -> [60, 21, 0, 0, 0])
+         * 2. 比較誰的第一個數字最大 (主屬性點越高越好)
+         * 3. 如果一樣，比較第二個數字 (副屬性點越高越好)
+         */
+        function filterBestStrategies(results) {
+            if (!results || results.length === 0) return [];
+
+            // 取得該筆資料的「配點特徵 (由大到小排序)」
+            const getSignature = (row) => [...row.manualPoints].sort((a, b) => b - a);
+
+            let bestResults = [];
+            let bestSignature = null;
+
+            for (const row of results) {
+                const currentSig = getSignature(row);
+
+                // 第一筆資料直接當成目前的最佳標準
+                if (!bestSignature) {
+                    bestSignature = currentSig;
+                    bestResults.push(row);
+                    continue;
+                }
+
+                // 比較 currentSig 與 bestSignature
+                let isBetter = false;
+                let isWorse = false;
+
+                for (let i = 0; i < 5; i++) {
+                    if (currentSig[i] > bestSignature[i]) {
+                        isBetter = true;
+                        break;
+                    }
+                    if (currentSig[i] < bestSignature[i]) {
+                        isWorse = true; // 比目前的最佳標準還分散，不合格
+                        break;
+                    }
+                }
+
+                if (isBetter) {
+                    // 發現了更集中的配點方式（例如原本是 60/21，現在發現可以 81/0）
+                    // 捨棄之前的結果，更新最佳標準
+                    bestSignature = currentSig;
+                    bestResults = [row];
+                } else if (!isWorse) {
+                    // 配點結構一樣（例如都是全點純血，或者都是 60/21），只是加在不同屬性或是隨機檔不同
+                    // 保留此結果
+                    bestResults.push(row);
+                }
+            }
+
+            return bestResults;
         }
 
         function groupByDropAndManual(data) {
@@ -601,15 +678,17 @@
         }
 
         function renderRandomCombo(item) {
-            // 根據誤差值產生對應的標籤
             let statusHtml = '';
-            // 如果誤差為 0 (完全吻合)
-            if (item.sumDiff === 0) {
+            
+            // 使用 logic.js 傳回的 isExact 來判斷是否完全無誤差
+            if (item.isExact) {
                 statusHtml = '<span class="badge bg-success ms-2">完全吻合</span>';
             } else {
-                // 如果有誤差，顯示黃色警告，並加上正負號
+                // 如果有誤差，顯示黃色警告
                 const sign = item.sumDiff > 0 ? '+' : '';
-                statusHtml = `<span class="badge bg-warning text-dark ms-2">總和誤差 ${sign}${item.sumDiff}</span>`;
+                // 如果 sumDiff 為 0 但不精確 (例如 HP+1 MP-1)，顯示 "誤差存在" 或保持顯示數值
+                const diffText = item.sumDiff === 0 ? '±1' : `${sign}${item.sumDiff}`;
+                statusHtml = `<span class="badge bg-warning text-dark ms-2">總和誤差 ${diffText}</span>`;
             }
 
             return `
