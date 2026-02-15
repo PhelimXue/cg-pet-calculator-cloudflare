@@ -256,10 +256,16 @@
             const params = new URLSearchParams(window.location.search);
             if (!params.has('baseGrow')) return false; 
 
+            // 1. 載入寵物名稱
+            if (params.has('petName')) {
+                const petName = params.get('petName');
+                document.getElementById('petSearch').value = petName;
+            }
+
             if (params.has('baseGrow')) document.getElementById('baseGrow').value = params.get('baseGrow');
             if (params.has('bpRateVal')) document.getElementById('bpRateVal').value = params.get('bpRateVal');
             
-            // 入第一組
+            // 載入第一組
             if (params.has('petLevel')) document.getElementById('petLevel').value = params.get('petLevel');
             if (params.has('remainingPoints')) document.getElementById('remainingPoints').value = params.get('remainingPoints');
             if (params.has('targetStats')) document.getElementById('targetStats').value = params.get('targetStats');
@@ -271,6 +277,11 @@
                 if (params.has('petLevel2')) document.getElementById('petLevel2').value = params.get('petLevel2');
                 if (params.has('remainingPoints2')) document.getElementById('remainingPoints2').value = params.get('remainingPoints2');
                 if (params.has('targetStats2')) document.getElementById('targetStats2').value = params.get('targetStats2');
+                
+                // 確保 Required 屬性被加上
+                document.getElementById('petLevel2').setAttribute('required', 'required');
+                document.getElementById('remainingPoints2').setAttribute('required', 'required');
+                document.getElementById('targetStats2').setAttribute('required', 'required');
             }
 
             return true;
@@ -278,12 +289,20 @@
 
         function generateShareURL() {
             const params = new URLSearchParams();
+            
+            // 1. 加入寵物名稱 (如果有的話)
+            const petName = document.getElementById('petSearch').value;
+            if (petName) {
+                params.set('petName', petName);
+            }
+
             params.set('baseGrow', document.getElementById('baseGrow').value);
             params.set('bpRateVal', document.getElementById('bpRateVal').value);
             params.set('petLevel', document.getElementById('petLevel').value);
             params.set('remainingPoints', document.getElementById('remainingPoints').value);
             params.set('targetStats', document.getElementById('targetStats').value);
 
+            // 2. 加入比較參數 (如果開啟的話)
             if (enableCompareChk.checked) {
                 params.set('compare', '1');
                 params.set('petLevel2', document.getElementById('petLevel2').value);
@@ -350,7 +369,8 @@
         baseGrowInput.addEventListener('input', (e) => {
             const val = e.target.value;
             const lookupKey = val.trim().split(/[\s,，]+/).join(',');
-            if (growToNameMap[lookupKey]) {
+            // 只有當搜尋框是空的時候，才嘗試反查名稱填入，避免使用者剛打字被覆蓋
+            if (growToNameMap[lookupKey] && searchInput.value === '') {
                 searchInput.value = growToNameMap[lookupKey].join(' / ');
                 searchInput.style.borderColor = "#198754";
                 setTimeout(() => searchInput.style.borderColor = "", 1000);
@@ -454,13 +474,15 @@
                             finalResults = finalResults.filter(item => {
                                 // item.actualGrow 是 (成長 - 掉檔) 的結果
                                 const testRes = calculatePetStats(item.actualGrow, item.randomCombo, 1, [0,0,0,0,0]);
-                                
-                                // 1等必須完全吻合 (或極小浮點數誤差，但通常顯示為整數)
-                                return Math.abs(testRes.stats.hp - p2.stats.hp) < 0.1 &&
-                                       Math.abs(testRes.stats.mp - p2.stats.mp) < 0.1 &&
-                                       Math.abs(testRes.stats.atk - p2.stats.atk) < 0.1 &&
-                                       Math.abs(testRes.stats.def - p2.stats.def) < 0.1 &&
-                                       Math.abs(testRes.stats.agi - p2.stats.agi) < 0.1;
+                                // 使用者看到的介面都是取整的結果而以
+                                const isHpMatch  = Math.floor(testRes.stats.hp)  === p2.stats.hp;
+                                const isMpMatch  = Math.floor(testRes.stats.mp)  === p2.stats.mp;
+                                const isAtkMatch = Math.floor(testRes.stats.atk) === p2.stats.atk;
+                                const isDefMatch = Math.floor(testRes.stats.def) === p2.stats.def;
+                                const isAgiMatch = Math.floor(testRes.stats.agi) === p2.stats.agi;
+
+                                // 1等必須完全吻合
+                                return isHpMatch && isMpMatch && isAtkMatch && isDefMatch && isAgiMatch;
                             });
 
                         } else {
@@ -521,7 +543,7 @@
                 <div class="alert alert-success d-flex align-items-center justify-content-between">
                     <div>
                         <strong>🔗 分享此次計算</strong>
-                        <p class="mb-0 small text-muted">包含比對設定</p>
+                        <p class="mb-0 small text-muted">包含寵物名稱與比對設定</p>
                     </div>
                     <button id="shareBtn" class="btn btn-success" onclick="copyToClipboard('${shareURL.replace(/'/g, "\\'")}')">
                         📋 複製分享連結
