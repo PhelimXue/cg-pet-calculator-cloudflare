@@ -1,23 +1,16 @@
 /*
  * 寵物素質完整分析器 (Web Worker / Async Optimized Version)
- * Update: 2026/02/12 - Level 1 "Vectorized Pre-computation" Fix
- * 修正：
- * 1. 廢除「矩陣反推邊界法」，解決過度剪枝導致結果遺漏的問題。
- * 2. 改用「分量預算法」：將隨機檔的影響力預先計算並快取，
- *    將核心迴圈從複雜的矩陣運算簡化為單純的加法比對。
- * 3. 確保 100% 找回所有 672 種組合，同時保持極致效能。
+ * Use this logic.js content
  */
 
-// ==========================================
-// 1. 常數與矩陣定義
-// ==========================================
+// ... (前面的矩陣與常數定義 MATRIX, BASE, fullRates 保持不變) ...
 
 const MATRIX = [
-    [8,   2,   3,   3,   1  ],  // HP
-    [1,   2,   2,   2,   10 ],  // MP
-    [0.2, 2.7, 0.3, 0.3, 0.2],  // ATK
-    [0.2, 0.3, 3,   0.3, 0.2],  // DEF
-    [0.1, 0.2, 0.2, 2,   0.1],  // AGI
+    [8,   2,   3,   3,   1  ],
+    [1,   2,   2,   2,   10 ],
+    [0.2, 2.7, 0.3, 0.3, 0.2],
+    [0.2, 0.3, 3,   0.3, 0.2],
+    [0.1, 0.2, 0.2, 2,   0.1], 
 ];
 
 const BASE = 20;
@@ -36,23 +29,17 @@ const fullRates = {
     51:2.14, 52:2.18
 };
 
-// ==========================================
-// 2. 基礎工具函數
-// ==========================================
+// ... (getRate, fixPos 保持不變) ...
 
 function getRate(grow) {
     return fullRates[Math.max(0, Math.min(52, grow))] || 0;
 }
 
 function fixPos(n) {
-    // 四捨五入到小數點後四位
     return Math.round(n * 10000) / 10000;
 }
 
-// ==========================================
-// 3. 高斯消去法與矩陣工具
-// ==========================================
-
+// ... (solveLinearSystem, bpToStats, fastBpToValues 保持不變) ...
 function solveLinearSystem(A, B) {
     let n = A.length;
     let mat = A.map(row => [...row]);
@@ -97,7 +84,6 @@ function bpToStats(bpArray) {
     };
 }
 
-// 根據 BP 計算素質數值的簡單數學版 (用於預計算)
 function fastBpToValues(bpArray) {
     return [
         MATRIX[0][0] * bpArray[0] + MATRIX[0][1] * bpArray[1] + MATRIX[0][2] * bpArray[2] + MATRIX[0][3] * bpArray[3] + MATRIX[0][4] * bpArray[4],
@@ -108,8 +94,12 @@ function fastBpToValues(bpArray) {
     ];
 }
 
-function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints) {
+// *** 修改處：加上 export ***
+export function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints) {
+    // 雖然 1 等邏輯被 smart 函數的優化分支取代，但正算檢查時仍需此邏輯
     if (petLevel === 1) {
+        // 1等公式: (成長 - 掉檔 + 隨機) * 0.2
+        // petGrow 參數傳入時應該是 "actualGrow" (即 原始成長-掉檔)
         const actualBp = petGrow.map((g, i) => fixPos((g + randomGrow[i]) * 0.2)); 
         const stats = bpToStats(actualBp);
         return { baseBp: actualBp, actualBp, stats };
@@ -122,9 +112,7 @@ function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints) {
     return { baseBp, actualBp, stats };
 }
 
-// ==========================================
-// 4. 組合生成
-// ==========================================
+// ... (getDropCombos, getRandomCombos 等其餘輔助函式保持不變) ...
 
 let CACHED_DROP_COMBOS = null;
 let CACHED_RANDOM_COMBOS = null;
@@ -162,7 +150,6 @@ function getRandomCombos() {
     return results;
 }
 
-// 非1等使用的 BP 範圍計算
 function calculateBPRanges(displayStats, tolerance = 0.9999) {
     const bVecA = [displayStats.hp, displayStats.mp, displayStats.atk, displayStats.def, displayStats.agi].map(v => v - BASE);
     const resultA = solveLinearSystem(MATRIX, bVecA);
@@ -203,9 +190,8 @@ function generateBPCombinations(bpRanges) {
     return results;
 }
 
-// ==========================================
-// 5. Async 核心邏輯
-// ==========================================
+
+// ... (smartReverseCalculateMatrix 函式內容保持不變) ...
 
 export async function smartReverseCalculateMatrix(
     baseGrow, 
@@ -217,17 +203,21 @@ export async function smartReverseCalculateMatrix(
     _unusedTolerance, 
     signal
 ) {
+    // 這裡直接使用原本提供的 smartReverseCalculateMatrix完整代碼
+    // 為了節省篇幅，請保留您原本 logic.js 中的此函式完整內容
+    // 只要確保本文件上方的 calculatePetStats 是 export 的即可
+    
+    // *** 以下為您原本的代碼內容 (示意) ***
     const startTime = performance.now();
     let lastYieldTime = startTime;
-    const YIELD_INTERVAL = 50; // 提升響應間隔
+    const YIELD_INTERVAL = 50; 
 
     const allMatchedCombinations = [];
     let totalChecked = 0;
 
-    // 通用結果加入器
     function addResult(actualGrow, randoms, manualPoints, stats, diffs) {
         allMatchedCombinations.push({
-            dropCombo: actualGrow.map((v, i) => baseGrow[i] - v), // 回推 drop
+            dropCombo: actualGrow.map((v, i) => baseGrow[i] - v),
             randomCombo: randoms,
             manualPoints: manualPoints,
             stats: stats,
@@ -238,17 +228,11 @@ export async function smartReverseCalculateMatrix(
         });
     }
 
-    // =================================================
-    // 分支 1：1 等寵物 - 分量預算查表法 (Vectorized Pre-computation)
-    // =================================================
     if (level === 1) {
         const zeroPoints = [0, 0, 0, 0, 0];
-        const randomCombos = getRandomCombos(); // 1001 種
-        const dropCombos = getDropCombos();     // 3125 種
+        const randomCombos = getRandomCombos(); 
+        const dropCombos = getDropCombos();     
 
-        // 1. 預先計算所有「隨機檔」對應的「數值增量向量」
-        // 公式：RandomBP = Random * 0.2
-        //      Effect = Matrix * RandomBP
         const cachedRandomEffects = new Array(randomCombos.length);
         for (let i = 0; i < randomCombos.length; i++) {
             const r = randomCombos[i];
@@ -256,11 +240,9 @@ export async function smartReverseCalculateMatrix(
             cachedRandomEffects[i] = fastBpToValues(randBP);
         }
 
-        // 2. 遍歷所有掉檔組合
         for (let dIdx = 0; dIdx < dropCombos.length; dIdx++) {
             const drops = dropCombos[dIdx];
 
-            // 讓 UI 保持響應
             if (dIdx % 1000 === 0) {
                  const now = performance.now();
                  if (now - lastYieldTime > YIELD_INTERVAL) {
@@ -270,10 +252,6 @@ export async function smartReverseCalculateMatrix(
                  }
             }
 
-            // 3. 計算該掉檔組合的「基礎數值」
-            // 公式：BaseBP = (Grow - Drop) * 0.2
-            //      BaseEffect = Matrix * BaseBP
-            //      注意：這裡不先進行 rounding，避免過早誤差
             const actualGrow = [
                 baseGrow[0] - drops[0],
                 baseGrow[1] - drops[1],
@@ -282,7 +260,6 @@ export async function smartReverseCalculateMatrix(
                 baseGrow[4] - drops[4]
             ];
             
-            // 基礎 BP
             const baseBP = [
                 actualGrow[0]*0.2, 
                 actualGrow[1]*0.2, 
@@ -290,46 +267,32 @@ export async function smartReverseCalculateMatrix(
                 actualGrow[3]*0.2, 
                 actualGrow[4]*0.2
             ];
-
-            // 基礎數值向量
             const baseVals = fastBpToValues(baseBP);
 
-            // 4. 極速核心迴圈：將「基礎向量」與 1001 個「隨機向量」相加
             for (let rIdx = 0; rIdx < randomCombos.length; rIdx++) {
                 totalChecked++;
-                
                 const randVals = cachedRandomEffects[rIdx];
                 
-                // 真實能力 = (基礎 + 隨機增量) 四捨五入後 + BASE
-                // 這裡模擬遊戲公式： fixPos( fixPos(Matrix*BP) )
-                // 因為矩陣乘法分配律，我們可以先加完再 fixPos，誤差極小可忽略
-                
-                // HP
                 const rawHP = baseVals[0] + randVals[0];
                 const finalHP = Math.floor(Math.round(rawHP * 10000) / 10000 + BASE);
                 if (finalHP !== targetStats.hp) continue;
 
-                // MP
                 const rawMP = baseVals[1] + randVals[1];
                 const finalMP = Math.floor(Math.round(rawMP * 10000) / 10000 + BASE);
                 if (finalMP !== targetStats.mp) continue;
 
-                // ATK
                 const rawATK = baseVals[2] + randVals[2];
                 const finalATK = Math.floor(Math.round(rawATK * 10000) / 10000 + BASE);
                 if (finalATK !== targetStats.atk) continue;
 
-                // DEF
                 const rawDEF = baseVals[3] + randVals[3];
                 const finalDEF = Math.floor(Math.round(rawDEF * 10000) / 10000 + BASE);
                 if (finalDEF !== targetStats.def) continue;
 
-                // AGI
                 const rawAGI = baseVals[4] + randVals[4];
                 const finalAGI = Math.floor(Math.round(rawAGI * 10000) / 10000 + BASE);
                 if (finalAGI !== targetStats.agi) continue;
 
-                // 如果全部通過，才做最後一次完整結構包裝 (這步很少執行)
                 const stats = {
                     hp: Math.round(rawHP * 10000) / 10000 + BASE,
                     mp: Math.round(rawMP * 10000) / 10000 + BASE,
@@ -350,10 +313,7 @@ export async function smartReverseCalculateMatrix(
         };
     }
 
-    // =================================================
-    // 分支 2：非 1 等寵物邏輯 (維持不變)
-    // =================================================
-
+    // Level > 1 Logic
     const bpRanges = calculateBPRanges(targetStats);
     if (bpRanges.some(r => r.length === 0)) {
         return { results: [], executionTime: 0, totalCombinationsTested: 0 };
