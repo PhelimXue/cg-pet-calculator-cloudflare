@@ -26,6 +26,27 @@
         .suggestion-item:hover { background-color: #f0f4ff; }
         
         .pet-title { font-size: 1.2rem; font-weight: bold; color: #0d6efd; }
+        .toast-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(50, 50, 50, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 9999;
+            font-size: 0.95rem;
+            pointer-events: none; /* 讓點擊穿透，避免擋住操作 */
+            opacity: 0;
+            transition: opacity 0.3s ease, bottom 0.3s ease;
+        }
+
+        .toast-message.show {
+            opacity: 1;
+            bottom: 40px; /* 稍微往上浮動的效果 */
+        }
     </style>
 </head>
 <body>
@@ -223,6 +244,20 @@
             element.addEventListener('touchend', clear);
         }
 
+        function showToast(message) {
+            let toast = document.getElementById('custom-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'custom-toast';
+                toast.className = 'toast-message';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('show');
+            if (toast.timeoutId) clearTimeout(toast.timeoutId);
+            toast.timeoutId = setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
         async function init() {
             // 載入寵物資料
             try {
@@ -389,10 +424,16 @@
                 state.level++;
             } else if (delta === -1) {
                 if (state.level <= 1) return;
-                const remaining = getRemainingBp();
-                if (remaining > 0) {
-                    state.level--;
-                } 
+                
+                const usedBp = state.manualBp.reduce((a, b) => a + b, 0);
+                // 預測降級後的總 BP (目前Level - 1 再 - 1)
+                const nextMaxBp = state.level - 2; 
+
+                if (usedBp > nextMaxBp) {
+                    showToast("已分配點數過多，請先重置或減少加點才能降等！");
+                    return;
+                }
+                state.level--;
             }
             refreshUI();
         }
