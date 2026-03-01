@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>永恆初心 - 寵物素質模擬器</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; padding: 20px 0; user-select: none; /* 防止長按選取文字 */ }
+        body { background-color: #f8f9fa; padding: 20px 0; user-select: none; }
         .container { max-width: 900px; }
         .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .stat-box { background-color: #fff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 10px; }
@@ -18,13 +19,37 @@
         .level-control { display: flex; align-items: center; justify-content: center; gap: 15px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .main-stat-display { background-color: #cfe2ff; }
         .drop-select { width: 60px; display: inline-block; }
+        
+        /* 搜尋框相關樣式 */
+        #search-results-container { position: absolute; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .suggestion-item { cursor: pointer; }
+        .suggestion-item:hover { background-color: #f0f4ff; }
+        
+        .pet-title { font-size: 1.2rem; font-weight: bold; color: #0d6efd; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>寵物素質模擬器</h1>
-            <a href="index.html" class="btn btn-outline-secondary">← 返回算檔器</a>
+            <div>
+                <h1>寵物素質模擬器</h1>
+                <div id="currentPetNameDisplay" class="pet-title" style="display:none;"></div>
+            </div>
+            <div>
+                <button class="btn btn-success me-2" id="shareBtn">🔗 分享配置</button>
+                <a href="index.html" class="btn btn-outline-secondary">← 返回算檔器</a>
+            </div>
+        </div>
+
+        <!-- 搜尋列 -->
+        <div class="card mb-3">
+            <div class="card-body py-3">
+                <label for="petSearch" class="form-label text-primary fw-bold mb-1">🔍 快速搜尋寵物 (自動切換成長檔)</label>
+                <div class="position-relative">
+                    <input type="text" class="form-control" id="petSearch" placeholder="搜尋寵物名稱 (例如: 虎人)..." autocomplete="off">
+                    <div id="search-results-container" class="list-group"></div>
+                </div>
+            </div>
         </div>
 
         <div class="row">
@@ -135,6 +160,7 @@
         const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
         
         let state = {
+            petName: '',
             baseGrow: [36, 38, 34, 11, 6],
             drop: [0, 0, 0, 0, 0],
             random: [2, 2, 2, 2, 2],
@@ -144,6 +170,9 @@
         };
 
         const els = {
+            search: document.getElementById('petSearch'),
+            results: document.getElementById('search-results-container'),
+            petNameDisplay: document.getElementById('currentPetNameDisplay'),
             baseGrow: document.getElementById('baseGrow'),
             drops: [0,1,2,3,4].map(i => document.getElementById(`drop${i}`)),
             rands: [0,1,2,3,4].map(i => document.getElementById(`rand${i}`)),
@@ -151,7 +180,7 @@
             displayLvl: document.getElementById('displayLvl'),
             remainBp: document.getElementById('remainBp'),
             manualContainer: document.getElementById('manualBpContainer'),
-            results: {
+            resultsStats: {
                 hp: document.getElementById('resHp'),
                 mp: document.getElementById('resMp'),
                 atk: document.getElementById('resAtk'),
@@ -166,6 +195,8 @@
             }
         };
 
+        let petData = [];
+
         // 幫元素綁定長按事件的輔助函式
         function setupLongPress(element, action) {
             let timer;
@@ -177,14 +208,10 @@
             };
 
             const start = (e) => {
-                // 為了在觸控裝置上避免觸發瀏覽器的選取或捲動，必要時可加 preventDefault
                 if(e.cancelable && e.type !== 'mousedown') e.preventDefault(); 
-                
-                action(); // 按下立刻執行一次
-                
-                // 500ms 後開始連續觸發
+                action(); 
                 timer = setTimeout(() => {
-                    interval = setInterval(action, 50); // 每 50ms 執行一次
+                    interval = setInterval(action, 50); 
                 }, 400);
             };
 
@@ -196,8 +223,24 @@
             element.addEventListener('touchend', clear);
         }
 
-        function init() {
+        async function init() {
+            // 載入寵物資料
+            try {
+                let converter = window.OpenCC ? await window.OpenCC.Converter({ from: 'tw', to: 'cn' }) : null;
+                const response = await fetch('./originmood-pet-data.json');
+                if (response.ok) {
+                    const json = await response.json();
+                    petData = Object.entries(json).map(([key, value]) => {
+                        const simpleName = converter ? converter(key) : key;
+                        return { name: key, searchKey: simpleName, grow: value.grow };
+                    });
+                }
+            } catch (err) {}
+
+            // 讀取 URL 參數
             const params = new URLSearchParams(window.location.search);
+            if(params.has('petName')) updatePetName(params.get('petName'));
+            
             if(params.has('baseGrow')) els.baseGrow.value = params.get('baseGrow');
             if(params.has('rate')) els.bpRate.value = params.get('rate');
             
@@ -212,20 +255,17 @@
 
             if(params.has('lvl')) {
                 const lvl = parseInt(params.get('lvl'));
-                if (!isNaN(lvl) && lvl >= 1) {
-                    state.level = lvl;
-                }
+                if (!isNaN(lvl) && lvl >= 1) state.level = lvl;
             }
 
             if(params.has('manual')) {
                 const mPoints = params.get('manual').split(',').map(Number);
-                // 確保有 5 個數值且合法
-                if (mPoints.length === 5) {
-                    state.manualBp = mPoints.map(p => isNaN(p) ? 0 : p);
-                }
+                if (mPoints.length === 5) state.manualBp = mPoints.map(p => isNaN(p) ? 0 : p);
             }
 
             renderBpControls();
+            setupSearch();
+            setupShare();
             
             updateStateFromDOM();
             refreshUI();
@@ -235,7 +275,6 @@
             els.drops.forEach(el => el.addEventListener('change', () => { updateStateFromDOM(); refreshUI(); }));
             els.rands.forEach(el => el.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); }));
             
-            // 綁定等級按鈕長按
             setupLongPress(document.getElementById('lvlUp'), () => changeLevel(1));
             setupLongPress(document.getElementById('lvlDown'), () => changeLevel(-1));
 
@@ -245,8 +284,73 @@
             });
         }
 
+        function updatePetName(name) {
+            state.petName = name;
+            els.search.value = name;
+            if(name) {
+                els.petNameDisplay.textContent = `目前模擬: ${name}`;
+                els.petNameDisplay.style.display = 'block';
+            } else {
+                els.petNameDisplay.style.display = 'none';
+            }
+        }
+
+        function setupSearch() {
+            els.search.addEventListener('input', (e) => {
+                const term = e.target.value.trim();
+                els.results.innerHTML = '';
+                if (term.length === 0) { els.results.style.display = 'none'; return; }
+                
+                const matches = petData.filter(pet => pet.name.includes(term) || pet.searchKey.includes(term));
+                if (matches.length > 0) {
+                    matches.forEach(pet => {
+                        const item = document.createElement('a');
+                        item.className = 'list-group-item list-group-item-action suggestion-item';
+                        item.innerHTML = `<strong>${pet.name}</strong> <small class="text-muted">(${pet.grow})</small>`;
+                        item.addEventListener('click', () => {
+                            updatePetName(pet.name);
+                            els.baseGrow.value = pet.grow.replace(/,/g, ' ');
+                            // 切換寵物時，保留掉檔/等級/加點設定，只變更成長檔和名稱
+                            updateStateFromDOM();
+                            refreshUI();
+                            els.results.style.display = 'none';
+                        });
+                        els.results.appendChild(item);
+                    });
+                    els.results.style.display = 'block';
+                } else {
+                    els.results.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target !== els.search && e.target !== els.results) els.results.style.display = 'none';
+            });
+        }
+
+        function setupShare() {
+            document.getElementById('shareBtn').addEventListener('click', () => {
+                const params = new URLSearchParams();
+                if(state.petName) params.set('petName', state.petName);
+                params.set('baseGrow', state.baseGrow.join(' '));
+                params.set('drop', state.drop.join(','));
+                params.set('rand', state.random.join(','));
+                params.set('rate', state.rate);
+                params.set('lvl', state.level);
+                params.set('manual', state.manualBp.join(','));
+
+                const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+                
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    const btn = document.getElementById('shareBtn');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✓ 已複製網址';
+                    setTimeout(() => btn.innerHTML = originalText, 2000);
+                }).catch(() => alert('複製失敗，請手動複製網址列'));
+            });
+        }
+
         function renderBpControls() {
-            // 利用陣列生成 HTML，並給予獨立 ID 以利綁定事件
             els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
                 <div class="bp-control">
                     <span>${name}</span>
@@ -258,7 +362,6 @@
                 </div>
             `).join('');
 
-            // 綁定長按事件
             ATTR_NAMES.forEach((_, i) => {
                 const btnDec = document.getElementById(`btnBpDec${i}`);
                 const btnInc = document.getElementById(`btnBpInc${i}`);
@@ -272,6 +375,7 @@
             state.drop = els.drops.map(el => parseInt(el.value));
             state.random = els.rands.map(el => parseInt(el.value));
             state.rate = parseFloat(els.bpRate.value) || 0.2;
+            // petName is updated via search logic
         }
 
         function getRemainingBp() {
@@ -289,7 +393,6 @@
                 if (remaining > 0) {
                     state.level--;
                 } 
-                // 若正在連續減少等級，遇到不能減就停住，不跳 alert 比較好，否則會一直彈窗
             }
             refreshUI();
         }
@@ -322,13 +425,13 @@
 
             const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
 
-            els.results.hp.textContent = Math.floor(result.stats.hp);
-            els.results.mp.textContent = Math.floor(result.stats.mp);
-            els.results.atk.textContent = Math.floor(result.stats.atk);
-            els.results.def.textContent = Math.floor(result.stats.def);
-            els.results.agi.textContent = Math.floor(result.stats.agi);
-            els.results.spt.textContent = Math.floor(result.stats.spt);
-            els.results.rec.textContent = Math.floor(result.stats.rec);
+            els.resultsStats.hp.textContent = Math.floor(result.stats.hp);
+            els.resultsStats.mp.textContent = Math.floor(result.stats.mp);
+            els.resultsStats.atk.textContent = Math.floor(result.stats.atk);
+            els.resultsStats.def.textContent = Math.floor(result.stats.def);
+            els.resultsStats.agi.textContent = Math.floor(result.stats.agi);
+            els.resultsStats.spt.textContent = Math.floor(result.stats.spt);
+            els.resultsStats.rec.textContent = Math.floor(result.stats.rec);
 
             result.baseBp.forEach((b, i) => els.infos.b[i].textContent = b.toFixed(2));
         }

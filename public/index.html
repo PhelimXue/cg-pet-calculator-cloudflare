@@ -311,7 +311,6 @@
                         if (p2.lvl === 1) {
                             document.getElementById('loadingText').innerText = "正在比對 1 等數據...";
                             finalResults = finalResults.filter(item => {
-                                // 在這裡傳入 rateMultiplier 是為了確保如果有非標準倍率 (非0.2) 也能正確比對
                                 const testRes = calculatePetStats(item.actualGrow, item.randomCombo, 1, [0,0,0,0,0], rateMultiplier);
                                 let match = true;
                                 if (Math.floor(testRes.stats.hp) !== p2.stats.hp) match = false;
@@ -388,7 +387,6 @@
                             <small>總掉檔：${dropStats.totalDropRange.min}~${dropStats.totalDropRange.max} 檔 ${dropStats.certainDrops.length > 0 ? `| ${dropStats.certainDrops.join(' ')}` : ''}</small>
                         </div>
                         <h6 class="mt-3 mb-2">顯示 ${Object.keys(groupedResults).length} 組分類結果</h6>
-                        <!-- 呼叫 renderGroupedResults 時傳入 level -->
                         ${renderGroupedResults(groupedResults, finalCount, baseGrow, level)}
                     </div>
                 </div>`;
@@ -461,7 +459,6 @@
                             <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
-                            <!-- 呼叫 renderRandomCombo 時傳入 level -->
                             ${items.map(item => renderRandomCombo(item, baseGrow, level)).join('')}
                         </div>
                     </div>`;
@@ -481,9 +478,12 @@
             let statusHtml = item.isExact ? '<span class="badge bg-success">完全吻合</span>' : `<span class="badge bg-warning text-dark">誤差 ${item.sumDiff > 0 ? '+':''}${item.sumDiff}</span>`;
             
             const bpRate = document.getElementById('bpRateVal').value / 100;
-            
+            // 獲取寵物名稱，若有可以帶入
+            const petName = document.getElementById('petSearch').value || '';
+
             // 組合 URL 參數
             const simParams = new URLSearchParams();
+            if(petName) simParams.set('petName', petName);
             simParams.set('baseGrow', baseGrow.join(' ')); 
             simParams.set('drop', item.dropCombo.join(','));
             simParams.set('rand', item.randomCombo.join(','));
