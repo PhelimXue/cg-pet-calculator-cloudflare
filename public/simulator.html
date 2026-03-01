@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>永恆初心 - 寵物素質模擬器</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding: 20px 0; user-select: none; /* 防止長按選取文字 */ }
+        .container { max-width: 900px; }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .stat-box { background-color: #fff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 10px; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: #0d6efd; }
+        .stat-label { color: #6c757d; font-size: 0.9em; }
+        .bp-control { display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #e9ecef; border-radius: 6px; margin-bottom: 8px; }
+        .bp-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .bp-val { font-weight: bold; min-width: 30px; text-align: center; }
+        .level-control { display: flex; align-items: center; justify-content: center; gap: 15px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .main-stat-display { background-color: #cfe2ff; }
+        .drop-select { width: 60px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>寵物素質模擬器</h1>
+            <a href="index.html" class="btn btn-outline-secondary">← 返回算檔器</a>
+        </div>
+
+        <div class="row">
+            <!-- 左側：設定與加點 -->
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">基礎設定</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">原始成長檔 (體 力 強 速 魔)</label>
+                            <input type="text" class="form-control" id="baseGrow" placeholder="36 38 34 11 6" value="36 38 34 11 6">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">掉檔 (0~4)</label>
+                            <div class="d-flex gap-1">
+                                <select class="form-select px-1 text-center" id="drop0"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                <select class="form-select px-1 text-center" id="drop1"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                <select class="form-select px-1 text-center" id="drop2"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                <select class="form-select px-1 text-center" id="drop3"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                <select class="form-select px-1 text-center" id="drop4"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">隨機檔 (0~10)</label>
+                            <div class="d-flex gap-1">
+                                <input type="number" class="form-control px-1 text-center" id="rand0" value="2" min="0" max="10">
+                                <input type="number" class="form-control px-1 text-center" id="rand1" value="2" min="0" max="10">
+                                <input type="number" class="form-control px-1 text-center" id="rand2" value="2" min="0" max="10">
+                                <input type="number" class="form-control px-1 text-center" id="rand3" value="2" min="0" max="10">
+                                <input type="number" class="form-control px-1 text-center" id="rand4" value="2" min="0" max="10">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">成長係數</label>
+                            <input type="number" class="form-control" id="bpRate" value="0.2" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-success text-white">等級與加點</div>
+                    <div class="card-body">
+                        <div class="level-control">
+                            <button class="btn btn-outline-danger" id="lvlDown" style="min-width: 40px">-</button>
+                            <div class="text-center">
+                                <div style="font-size: 0.8em; color: #198754;">目前等級</div>
+                                <div style="font-size: 2em; font-weight: bold; line-height: 1;" id="displayLvl">1</div>
+                            </div>
+                            <button class="btn btn-outline-primary" id="lvlUp" style="min-width: 40px">+</button>
+                        </div>
+
+                        <div class="alert alert-warning py-2 text-center">
+                            剩餘點數 (BP): <strong id="remainBp">0</strong>
+                        </div>
+
+                        <div id="manualBpContainer"></div>
+                        
+                        <div class="d-grid mt-2">
+                             <button class="btn btn-outline-secondary btn-sm" id="resetBpBtn">重置加點</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側：結果顯示 -->
+            <div class="col-md-7">
+                <div class="card h-100">
+                    <div class="card-header bg-dark text-white">模擬素質結果</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6"><div class="stat-box main-stat-display"><div class="stat-label">生命 (HP)</div><div class="stat-value" id="resHp">0</div></div></div>
+                            <div class="col-6"><div class="stat-box main-stat-display"><div class="stat-label">魔力 (MP)</div><div class="stat-value" id="resMp">0</div></div></div>
+                            
+                            <div class="col-4"><div class="stat-box"><div class="stat-label">攻擊 (ATK)</div><div class="stat-value" id="resAtk">0</div></div></div>
+                            <div class="col-4"><div class="stat-box"><div class="stat-label">防禦 (DEF)</div><div class="stat-value" id="resDef">0</div></div></div>
+                            <div class="col-4"><div class="stat-box"><div class="stat-label">敏捷 (AGI)</div><div class="stat-value" id="resAgi">0</div></div></div>
+                            
+                            <div class="col-6"><div class="stat-box"><div class="stat-label">精神 (SPT)</div><div class="stat-value" id="resSpt">0</div></div></div>
+                            <div class="col-6"><div class="stat-box"><div class="stat-label">回復 (REC)</div><div class="stat-value" id="resRec">0</div></div></div>
+                        </div>
+
+                        <hr>
+                        <h6>原始 BP 分析 (不含加點)</h6>
+                        <table class="table table-sm table-bordered text-center" style="font-size: 0.9em;">
+                            <thead>
+                                <tr class="table-light"><th>屬性</th><th>體力</th><th>力量</th><th>強度</th><th>速度</th><th>魔法</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>檔次</td>
+                                    <td id="infoG0">0</td><td id="infoG1">0</td><td id="infoG2">0</td><td id="infoG3">0</td><td id="infoG4">0</td>
+                                </tr>
+                                <tr>
+                                    <td>基礎BP</td>
+                                    <td id="infoB0">0</td><td id="infoB1">0</td><td id="infoB2">0</td><td id="infoB3">0</td><td id="infoB4">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { calculatePetStats } from './js/logic.js';
+
+        const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
+        
+        let state = {
+            baseGrow: [36, 38, 34, 11, 6],
+            drop: [0, 0, 0, 0, 0],
+            random: [2, 2, 2, 2, 2],
+            level: 1,
+            manualBp: [0, 0, 0, 0, 0],
+            rate: 0.2
+        };
+
+        const els = {
+            baseGrow: document.getElementById('baseGrow'),
+            drops: [0,1,2,3,4].map(i => document.getElementById(`drop${i}`)),
+            rands: [0,1,2,3,4].map(i => document.getElementById(`rand${i}`)),
+            bpRate: document.getElementById('bpRate'),
+            displayLvl: document.getElementById('displayLvl'),
+            remainBp: document.getElementById('remainBp'),
+            manualContainer: document.getElementById('manualBpContainer'),
+            results: {
+                hp: document.getElementById('resHp'),
+                mp: document.getElementById('resMp'),
+                atk: document.getElementById('resAtk'),
+                def: document.getElementById('resDef'),
+                agi: document.getElementById('resAgi'),
+                spt: document.getElementById('resSpt'),
+                rec: document.getElementById('resRec')
+            },
+            infos: {
+                g: [0,1,2,3,4].map(i => document.getElementById(`infoG${i}`)),
+                b: [0,1,2,3,4].map(i => document.getElementById(`infoB${i}`))
+            }
+        };
+
+        // 幫元素綁定長按事件的輔助函式
+        function setupLongPress(element, action) {
+            let timer;
+            let interval;
+            
+            const clear = () => {
+                clearTimeout(timer);
+                clearInterval(interval);
+            };
+
+            const start = (e) => {
+                // 為了在觸控裝置上避免觸發瀏覽器的選取或捲動，必要時可加 preventDefault
+                if(e.cancelable && e.type !== 'mousedown') e.preventDefault(); 
+                
+                action(); // 按下立刻執行一次
+                
+                // 500ms 後開始連續觸發
+                timer = setTimeout(() => {
+                    interval = setInterval(action, 50); // 每 50ms 執行一次
+                }, 400);
+            };
+
+            element.addEventListener('mousedown', start);
+            element.addEventListener('touchstart', start, {passive: false});
+
+            element.addEventListener('mouseup', clear);
+            element.addEventListener('mouseleave', clear);
+            element.addEventListener('touchend', clear);
+        }
+
+        function init() {
+            const params = new URLSearchParams(window.location.search);
+            if(params.has('baseGrow')) els.baseGrow.value = params.get('baseGrow');
+            if(params.has('rate')) els.bpRate.value = params.get('rate');
+            
+            if(params.has('drop')) {
+                const ds = params.get('drop').split(',').map(Number);
+                ds.forEach((d, i) => { if(els.drops[i]) els.drops[i].value = d; });
+            }
+            if(params.has('rand')) {
+                const rs = params.get('rand').split(',').map(Number);
+                rs.forEach((r, i) => { if(els.rands[i]) els.rands[i].value = r; });
+            }
+
+            renderBpControls();
+            
+            updateStateFromDOM();
+            refreshUI();
+
+            els.baseGrow.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); });
+            els.bpRate.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); });
+            els.drops.forEach(el => el.addEventListener('change', () => { updateStateFromDOM(); refreshUI(); }));
+            els.rands.forEach(el => el.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); }));
+            
+            // 綁定等級按鈕長按
+            setupLongPress(document.getElementById('lvlUp'), () => changeLevel(1));
+            setupLongPress(document.getElementById('lvlDown'), () => changeLevel(-1));
+
+            document.getElementById('resetBpBtn').addEventListener('click', () => {
+                state.manualBp = [0,0,0,0,0];
+                refreshUI();
+            });
+        }
+
+        function renderBpControls() {
+            // 利用陣列生成 HTML，並給予獨立 ID 以利綁定事件
+            els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
+                <div class="bp-control">
+                    <span>${name}</span>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-outline-danger bp-btn me-2" id="btnBpDec${i}">-</button>
+                        <span class="bp-val" id="manualVal${i}">0</span>
+                        <button class="btn btn-outline-primary bp-btn ms-2" id="btnBpInc${i}">+</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // 綁定長按事件
+            ATTR_NAMES.forEach((_, i) => {
+                const btnDec = document.getElementById(`btnBpDec${i}`);
+                const btnInc = document.getElementById(`btnBpInc${i}`);
+                setupLongPress(btnDec, () => changeBp(i, -1));
+                setupLongPress(btnInc, () => changeBp(i, 1));
+            });
+        }
+
+        function updateStateFromDOM() {
+            state.baseGrow = els.baseGrow.value.trim().split(/[\s,]+/).map(n => parseFloat(n) || 0);
+            state.drop = els.drops.map(el => parseInt(el.value));
+            state.random = els.rands.map(el => parseInt(el.value));
+            state.rate = parseFloat(els.bpRate.value) || 0.2;
+        }
+
+        function getRemainingBp() {
+            const totalEarnedBp = state.level - 1;
+            const usedBp = state.manualBp.reduce((a, b) => a + b, 0);
+            return totalEarnedBp - usedBp;
+        }
+
+        function changeLevel(delta) {
+            if (delta === 1) {
+                state.level++;
+            } else if (delta === -1) {
+                if (state.level <= 1) return;
+                const remaining = getRemainingBp();
+                if (remaining > 0) {
+                    state.level--;
+                } 
+                // 若正在連續減少等級，遇到不能減就停住，不跳 alert 比較好，否則會一直彈窗
+            }
+            refreshUI();
+        }
+
+        function changeBp(index, delta) {
+            if (delta === 1) {
+                if (getRemainingBp() > 0) {
+                    state.manualBp[index]++;
+                }
+            } else if (delta === -1) {
+                if (state.manualBp[index] > 0) {
+                    state.manualBp[index]--;
+                }
+            }
+            refreshUI();
+        }
+
+        function refreshUI() {
+            els.displayLvl.textContent = state.level;
+            const remain = getRemainingBp();
+            els.remainBp.textContent = remain;
+            els.remainBp.className = remain > 0 ? 'text-danger' : 'text-success';
+
+            state.manualBp.forEach((val, i) => {
+                document.getElementById(`manualVal${i}`).textContent = val;
+            });
+
+            const actualGrow = state.baseGrow.map((g, i) => g - (state.drop[i] || 0));
+            actualGrow.forEach((g, i) => els.infos.g[i].textContent = g);
+
+            const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
+
+            els.results.hp.textContent = Math.floor(result.stats.hp);
+            els.results.mp.textContent = Math.floor(result.stats.mp);
+            els.results.atk.textContent = Math.floor(result.stats.atk);
+            els.results.def.textContent = Math.floor(result.stats.def);
+            els.results.agi.textContent = Math.floor(result.stats.agi);
+            els.results.spt.textContent = Math.floor(result.stats.spt);
+            els.results.rec.textContent = Math.floor(result.stats.rec);
+
+            result.baseBp.forEach((b, i) => els.infos.b[i].textContent = b.toFixed(2));
+        }
+
+        init();
+    </script>
+</body>
+</html>

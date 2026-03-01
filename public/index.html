@@ -25,7 +25,6 @@
         .summary-stats { background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         h1 { color: #0d6efd; font-weight: bold; margin-bottom: 30px; text-align: center; }
         label { font-weight: 500; color: #495057; }
-        .form-control:focus, .form-select:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); }
         #search-results-container { position: absolute; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .suggestion-item { cursor: pointer; }
         .suggestion-item:hover { background-color: #f0f4ff; }
@@ -35,7 +34,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>永恆初心 - 寵物算檔器</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>永恆初心 - 寵物算檔器</h1>
+            <a href="simulator.html" class="btn btn-outline-primary">🎮 前往模擬器</a>
+        </div>
 
         <div class="card">
             <div class="card-body">
@@ -126,8 +128,6 @@
         import { smartReverseCalculateMatrix, calculatePetStats } from './js/logic.js';
 
         const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
-        const STAT_NAMES_KEYS = ['hp', 'mp', 'atk', 'def', 'agi', 'spt', 'rec'];
-
         const enableCompareChk = document.getElementById('enableCompare');
         const compareSection = document.getElementById('compareSection');
         
@@ -161,9 +161,6 @@
                 document.getElementById('petLevel2').value = params.get('petLevel2') || '1';
                 document.getElementById('remainingPoints2').value = params.get('remainingPoints2') || '0';
                 document.getElementById('targetStats2').value = params.get('targetStats2') || '';
-                document.getElementById('petLevel2').setAttribute('required', 'required');
-                document.getElementById('remainingPoints2').setAttribute('required', 'required');
-                document.getElementById('targetStats2').setAttribute('required', 'required');
             }
             return true;
         }
@@ -252,8 +249,6 @@
                         searchInput.value = pet.name;
                         resultsContainer.style.display = 'none';
                         baseGrowInput.focus();
-                        baseGrowInput.style.backgroundColor = '#e7f3ff';
-                        setTimeout(() => baseGrowInput.style.backgroundColor = '', 500);
                     });
                     resultsContainer.appendChild(item);
                 });
@@ -288,28 +283,23 @@
             setTimeout(async () => {
                 try {
                     const baseGrow = parseNumberArray(document.getElementById('baseGrow').value);
-                    const bpRateVal = parseInt(document.getElementById('bpRateVal').value);
+                    const bpRateVal = parseFloat(document.getElementById('bpRateVal').value);
+                    const rateMultiplier = bpRateVal / 100;
                     const isCompareEnabled = enableCompareChk.checked;
 
-                    // 支援讀取 5 或 7 個參數
                     const getParams = (suffix = '') => {
                         const lvl = parseInt(document.getElementById(`petLevel${suffix}`).value);
                         const pts = parseInt(document.getElementById(`remainingPoints${suffix}`).value);
                         const statsArr = parseNumberArray(document.getElementById(`targetStats${suffix}`).value);
-                        if (statsArr.length !== 5 && statsArr.length !== 7) throw new Error(`輸入錯誤：${suffix ? '第二組' : ''}素質必須是 5 個(僅5圍) 或 7 個(含精回)數值`);
-                        
                         const stats = { hp: statsArr[0], mp: statsArr[1], atk: statsArr[2], def: statsArr[3], agi: statsArr[4] };
-                        if (statsArr.length >= 7) {
-                            stats.spt = statsArr[5];
-                            stats.rec = statsArr[6];
-                        }
+                        if (statsArr.length >= 7) { stats.spt = statsArr[5]; stats.rec = statsArr[6]; }
                         return { lvl, pts, stats };
                     };
 
                     const p1 = getParams('');
                     
                     const result1 = await smartReverseCalculateMatrix(
-                        baseGrow, p1.stats, p1.lvl, bpRateVal / 100, 0, p1.pts, null, abortController.signal
+                        baseGrow, p1.stats, p1.lvl, rateMultiplier, 0, p1.pts, null, abortController.signal
                     );
                     
                     let finalResults = result1.results;
@@ -321,7 +311,8 @@
                         if (p2.lvl === 1) {
                             document.getElementById('loadingText').innerText = "正在比對 1 等數據...";
                             finalResults = finalResults.filter(item => {
-                                const testRes = calculatePetStats(item.actualGrow, item.randomCombo, 1, [0,0,0,0,0]);
+                                // 在這裡傳入 rateMultiplier 是為了確保如果有非標準倍率 (非0.2) 也能正確比對
+                                const testRes = calculatePetStats(item.actualGrow, item.randomCombo, 1, [0,0,0,0,0], rateMultiplier);
                                 let match = true;
                                 if (Math.floor(testRes.stats.hp) !== p2.stats.hp) match = false;
                                 if (Math.floor(testRes.stats.mp) !== p2.stats.mp) match = false;
@@ -335,7 +326,7 @@
                         } else {
                             document.getElementById('loadingText').innerText = "計算中 (第二組)...";
                             await new Promise(r => setTimeout(r, 0));
-                            const result2 = await smartReverseCalculateMatrix(baseGrow, p2.stats, p2.lvl, bpRateVal / 100, 0, p2.pts, null, abortController.signal);
+                            const result2 = await smartReverseCalculateMatrix(baseGrow, p2.stats, p2.lvl, rateMultiplier, 0, p2.pts, null, abortController.signal);
                             summaryStats.execTime += parseFloat(result2.executionTime);
                             summaryStats.tested += result2.totalCombinationsTested;
 
@@ -397,7 +388,7 @@
                             <small>總掉檔：${dropStats.totalDropRange.min}~${dropStats.totalDropRange.max} 檔 ${dropStats.certainDrops.length > 0 ? `| ${dropStats.certainDrops.join(' ')}` : ''}</small>
                         </div>
                         <h6 class="mt-3 mb-2">顯示 ${Object.keys(groupedResults).length} 組分類結果</h6>
-                        ${renderGroupedResults(groupedResults, finalCount)}
+                        ${renderGroupedResults(groupedResults, finalCount, baseGrow)}
                     </div>
                 </div>`;
             document.getElementById('results').innerHTML = html;
@@ -449,7 +440,7 @@
             return { totalDropRange: { min: totalDropMin, max: totalDropMax }, certainDrops };
         }
 
-        function renderGroupedResults(groupedResults, totalCount) {
+        function renderGroupedResults(groupedResults, totalCount, baseGrow) { // Added baseGrow
             let html = '';
             let groupIndex = 0;
             const sortedGroups = Object.entries(groupedResults).sort((a, b) => b[1].length - a[1].length);
@@ -469,7 +460,7 @@
                             <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
-                            ${items.map(item => renderRandomCombo(item)).join('')}
+                            ${items.map(item => renderRandomCombo(item, baseGrow)).join('')} <!-- Pass baseGrow -->
                         </div>
                     </div>`;
                 groupIndex++;
@@ -484,15 +475,28 @@
             icon.classList.toggle('expanded');
         });
 
-        function renderRandomCombo(item) {
+        function renderRandomCombo(item, baseGrow) {
             let statusHtml = item.isExact ? '<span class="badge bg-success">完全吻合</span>' : `<span class="badge bg-warning text-dark">誤差 ${item.sumDiff > 0 ? '+':''}${item.sumDiff}</span>`;
             
-            // 確保有包含精與回
+            // 準備連結參數給 Simulator
+            const bpRate = document.getElementById('bpRateVal').value / 100;
+            const simParams = new URLSearchParams();
+            simParams.set('baseGrow', baseGrow.join(' ')); 
+            simParams.set('drop', item.dropCombo.join(','));
+            simParams.set('rand', item.randomCombo.join(','));
+            simParams.set('rate', bpRate);
+            const simUrl = `simulator.html?${simParams.toString()}`;
+
             return `
                 <div class="combo-item">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <div><small>隨機:</small> ${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}</div>
-                        ${statusHtml}
+                        <div>
+                           <small>隨機:</small> ${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}
+                        </div>
+                        <div>
+                             <a href="${simUrl}" target="_blank" class="btn btn-sm btn-outline-primary py-0" style="font-size: 0.8em; margin-right: 5px;">🎮 模擬此檔</a>
+                            ${statusHtml}
+                        </div>
                     </div>
                     <div>
                         <span class="stat-badge">HP: ${item.stats.hp.toFixed(0)}</span>
