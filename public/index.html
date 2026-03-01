@@ -335,7 +335,7 @@
                         }
                     }
 
-                    displayResults(finalResults, summaryStats, baseGrow, isCompareEnabled ? finalResults.length : result1.results.length);
+                    displayResults(finalResults, summaryStats, baseGrow, isCompareEnabled ? finalResults.length : result1.results.length, p1.lvl);
 
                 } catch (error) {
                     if (error.message === 'ABORTED' || error.name === 'AbortError') {
@@ -352,8 +352,8 @@
             }, 50);
         });
 
-        function displayResults(data, summary, baseGrow, preFilterCount) {
-             const shareURL = generateShareURL();
+        function displayResults(data, summary, baseGrow, preFilterCount, level) {
+            const shareURL = generateShareURL();
             const shareButtonHTML = `
                 <div class="alert alert-success d-flex align-items-center justify-content-between">
                     <div><strong>🔗 分享計算結果</strong><p class="mb-0 small text-muted">包含比對設定</p></div>
@@ -372,7 +372,7 @@
             const dropStats = calculateDropStats(filteredData, baseGrow);
 
             let filterMsg = `<div>智能過濾：${beforeStrategyCount} → <strong>${finalCount}</strong> 筆最佳解</div>`;
-            if (enableCompareChk.checked) filterMsg = `<div>比對過濾：原始 ${preFilterCount} → 符合 ${beforeStrategyCount}</div>` + filterMsg;
+            if (document.getElementById('enableCompare').checked) filterMsg = `<div>比對過濾：原始 ${preFilterCount} → 符合 ${beforeStrategyCount}</div>` + filterMsg;
 
             let html = `
                 ${shareButtonHTML}
@@ -388,7 +388,8 @@
                             <small>總掉檔：${dropStats.totalDropRange.min}~${dropStats.totalDropRange.max} 檔 ${dropStats.certainDrops.length > 0 ? `| ${dropStats.certainDrops.join(' ')}` : ''}</small>
                         </div>
                         <h6 class="mt-3 mb-2">顯示 ${Object.keys(groupedResults).length} 組分類結果</h6>
-                        ${renderGroupedResults(groupedResults, finalCount, baseGrow)}
+                        <!-- 呼叫 renderGroupedResults 時傳入 level -->
+                        ${renderGroupedResults(groupedResults, finalCount, baseGrow, level)}
                     </div>
                 </div>`;
             document.getElementById('results').innerHTML = html;
@@ -440,7 +441,7 @@
             return { totalDropRange: { min: totalDropMin, max: totalDropMax }, certainDrops };
         }
 
-        function renderGroupedResults(groupedResults, totalCount, baseGrow) { // Added baseGrow
+        function renderGroupedResults(groupedResults, totalCount, baseGrow, level) {
             let html = '';
             let groupIndex = 0;
             const sortedGroups = Object.entries(groupedResults).sort((a, b) => b[1].length - a[1].length);
@@ -460,7 +461,8 @@
                             <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
-                            ${items.map(item => renderRandomCombo(item, baseGrow)).join('')} <!-- Pass baseGrow -->
+                            <!-- 呼叫 renderRandomCombo 時傳入 level -->
+                            ${items.map(item => renderRandomCombo(item, baseGrow, level)).join('')}
                         </div>
                     </div>`;
                 groupIndex++;
@@ -475,26 +477,34 @@
             icon.classList.toggle('expanded');
         });
 
-        function renderRandomCombo(item, baseGrow) {
+        function renderRandomCombo(item, baseGrow, level) {
             let statusHtml = item.isExact ? '<span class="badge bg-success">完全吻合</span>' : `<span class="badge bg-warning text-dark">誤差 ${item.sumDiff > 0 ? '+':''}${item.sumDiff}</span>`;
             
-            // 準備連結參數給 Simulator
             const bpRate = document.getElementById('bpRateVal').value / 100;
+            
+            // 組合 URL 參數
             const simParams = new URLSearchParams();
             simParams.set('baseGrow', baseGrow.join(' ')); 
             simParams.set('drop', item.dropCombo.join(','));
             simParams.set('rand', item.randomCombo.join(','));
             simParams.set('rate', bpRate);
+            
+            // 新增 level 與 manual
+            simParams.set('lvl', level);
+            simParams.set('manual', item.manualPoints.join(','));
+
+            // 產生連結
             const simUrl = `simulator.html?${simParams.toString()}`;
 
             return `
                 <div class="combo-item">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <div>
-                           <small>隨機:</small> ${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}
+                        <small>隨機:</small> ${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}
                         </div>
                         <div>
-                             <a href="${simUrl}" target="_blank" class="btn btn-sm btn-outline-primary py-0" style="font-size: 0.8em; margin-right: 5px;">🎮 模擬此檔</a>
+                            <!-- 這裡的 href 已經包含等級與配點參數 -->
+                            <a href="${simUrl}" target="_blank" class="btn btn-sm btn-outline-primary py-0" style="font-size: 0.8em; margin-right: 5px;">🎮 模擬此檔</a>
                             ${statusHtml}
                         </div>
                     </div>

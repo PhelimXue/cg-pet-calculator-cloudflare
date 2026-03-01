@@ -210,6 +210,21 @@
                 rs.forEach((r, i) => { if(els.rands[i]) els.rands[i].value = r; });
             }
 
+            if(params.has('lvl')) {
+                const lvl = parseInt(params.get('lvl'));
+                if (!isNaN(lvl) && lvl >= 1) {
+                    state.level = lvl;
+                }
+            }
+
+            if(params.has('manual')) {
+                const mPoints = params.get('manual').split(',').map(Number);
+                // 確保有 5 個數值且合法
+                if (mPoints.length === 5) {
+                    state.manualBp = mPoints.map(p => isNaN(p) ? 0 : p);
+                }
+            }
+
             renderBpControls();
             
             updateStateFromDOM();
