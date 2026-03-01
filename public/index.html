@@ -5,137 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>永恆初心 - 寵物算檔器</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- 引入 OpenCC 繁簡轉換庫 -->
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.min.js"></script>
     <style>
-        body {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-        }
-        .container {
-            max-width: 1200px;
-        }
-        .card {
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .result-group {
-            background-color: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #0d6efd;
-        }
-        .group-header {
-            cursor: pointer;
-            user-select: none;
-        }
-        .group-header:hover {
-            background-color: #e9ecef;
-            border-radius: 4px;
-        }
-        .expand-icon {
-            transition: transform 0.3s;
-            display: inline-block;
-        }
-        .expand-icon.expanded {
-            transform: rotate(90deg);
-        }
-        .random-combos {
-            display: none;
-            margin-top: 10px;
-        }
-        .random-combos.show {
-            display: block;
-        }
-        .stat-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            margin: 2px;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        .combo-item {
-            padding: 10px;
-            margin: 5px 0;
-            background-color: white;
-            border-radius: 4px;
-            border: 1px solid #dee2e6;
-        }
-        .percentage {
-            font-weight: bold;
-            color: #0d6efd;
-            font-size: 1.1em;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .error-message {
-            display: none;
-            margin: 20px 0;
-        }
-        .summary-stats {
-            background-color: #e7f3ff;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #0d6efd;
-            font-weight: bold;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        label {
-            font-weight: 500;
-            color: #495057;
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: #0d6efd;
-            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-        }
-        #search-results-container {
-            position: absolute;
-            z-index: 1000;
-            width: 100%;
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .suggestion-item {
-            cursor: pointer;
-        }
-        .suggestion-item:hover {
-            background-color: #f0f4ff;
-        }
-        /* 新增比較區塊樣式 */
-        .compare-section {
-            background-color: #fff8e1;
-            border: 1px solid #ffeebb;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        .compare-section.show {
-            display: block;
-        }
+        body { background-color: #f8f9fa; padding: 20px 0; }
+        .container { max-width: 1200px; }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .result-group { background-color: #f8f9fa; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0d6efd; }
+        .group-header { cursor: pointer; user-select: none; }
+        .group-header:hover { background-color: #e9ecef; border-radius: 4px; }
+        .expand-icon { transition: transform 0.3s; display: inline-block; }
+        .expand-icon.expanded { transform: rotate(90deg); }
+        .random-combos { display: none; margin-top: 10px; }
+        .random-combos.show { display: block; }
+        .stat-badge { display: inline-block; padding: 4px 8px; margin: 2px; background-color: #e9ecef; border-radius: 4px; font-size: 0.9em; min-width: 85px; text-align: center; }
+        .combo-item { padding: 10px; margin: 5px 0; background-color: white; border-radius: 4px; border: 1px solid #dee2e6; }
+        .percentage { font-weight: bold; color: #0d6efd; font-size: 1.1em; }
+        .loading { display: none; text-align: center; margin: 20px 0; }
+        .error-message { display: none; margin: 20px 0; }
+        .summary-stats { background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        h1 { color: #0d6efd; font-weight: bold; margin-bottom: 30px; text-align: center; }
+        label { font-weight: 500; color: #495057; }
+        .form-control:focus, .form-select:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); }
+        #search-results-container { position: absolute; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .suggestion-item { cursor: pointer; }
+        .suggestion-item:hover { background-color: #f0f4ff; }
+        .compare-section { background-color: #fff8e1; border: 1px solid #ffeebb; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: none; }
+        .compare-section.show { display: block; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>永恆初心 - 寵物算檔器</h1>
 
-        <!-- 輸入表單 -->
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-4">輸入參數</h5>
                 
-                <!-- 寵物搜尋區塊 -->
                 <div class="mb-4 p-3 bg-light rounded border">
                     <label for="petSearch" class="form-label text-primary fw-bold">🔍 快速搜尋寵物</label>
                     <div class="position-relative">
@@ -145,7 +50,6 @@
                 </div>
 
                 <form id="calculatorForm">
-                    <!-- 第一行：成長檔(左) | 成長率 -->
                     <div class="row mb-3">
                         <div class="col-md-8">
                             <label for="baseGrow" class="form-label">寵物成長檔 (體 力 強 速 魔)</label>
@@ -158,7 +62,6 @@
                         </div>
                     </div>
 
-                    <!-- 第二行：等級 | 點數 | 素質(右) -->
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <label for="petLevel" class="form-label">寵物等級 (目前)</label>
@@ -169,18 +72,17 @@
                             <input type="number" class="form-control" id="remainingPoints" value="0" min="0" required>
                         </div>
                         <div class="col-md-6">
-                            <label for="targetStats" class="form-label">寵物素質 (血 魔 攻 防 敏)</label>
-                            <input type="text" class="form-control" id="targetStats" placeholder="例如: 1797 683 348 355 132" required>
+                            <label for="targetStats" class="form-label">寵物素質 (血 魔 攻 防 敏 [精 回])</label>
+                            <input type="text" class="form-control" id="targetStats" placeholder="例如: 300 280 45 40 38 (可選填 105 95)" required>
+                            <small class="form-text text-muted">支援 5 圍 (血魔攻防敏) 或 7 圍 (血魔攻防敏精回)</small>
                         </div>
                     </div>
 
-                    <!-- 比較功能開關 -->
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" id="enableCompare">
                         <label class="form-check-label fw-bold text-success" for="enableCompare">加入比較基準 (輸入另一等級的素質進行比對過濾)</label>
                     </div>
 
-                    <!-- 比較用輸入區塊 -->
                     <div id="compareSection" class="compare-section">
                         <h6 class="text-success fw-bold border-bottom pb-2 mb-3">📌 比較基準 (第二組數據)</h6>
                          <div class="row mb-3">
@@ -193,7 +95,7 @@
                                 <input type="number" class="form-control" id="remainingPoints2" value="0" min="0">
                             </div>
                             <div class="col-md-6">
-                                <label for="targetStats2" class="form-label">素質 (血 魔 攻 防 敏)</label>
+                                <label for="targetStats2" class="form-label">素質 (血 魔 攻 防 敏 [精 回])</label>
                                 <input type="text" class="form-control" id="targetStats2" placeholder="輸入另一個等級的素質...">
                             </div>
                         </div>
@@ -207,22 +109,15 @@
             </div>
         </div>
 
-        <!-- 載入中提示 -->
         <div class="loading" id="loading">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">計算中...</span>
             </div>
             <p class="mt-2 text-primary fw-bold" id="loadingText">正在計算中，請稍候...</p>
-            <!-- 中斷按鈕 -->
-            <button type="button" class="btn btn-danger mt-2" id="cancelBtn">
-                ⛔ 中斷計算
-            </button>
+            <button type="button" class="btn btn-danger mt-2" id="cancelBtn">⛔ 中斷計算</button>
         </div>
 
-        <!-- 錯誤訊息 -->
         <div class="alert alert-danger error-message" id="errorMessage"></div>
-
-        <!-- 結果顯示 -->
         <div id="results"></div>
     </div>
 
@@ -231,9 +126,8 @@
         import { smartReverseCalculateMatrix, calculatePetStats } from './js/logic.js';
 
         const ATTR_NAMES = ['體力', '力量', '強度', '速度', '魔法'];
-        const STAT_NAMES = { hp: 'HP', mp: 'MP', atk: 'ATK', def: 'DEF', agi: 'AGI' };
+        const STAT_NAMES_KEYS = ['hp', 'mp', 'atk', 'def', 'agi', 'spt', 'rec'];
 
-        // === UI 切換 ===
         const enableCompareChk = document.getElementById('enableCompare');
         const compareSection = document.getElementById('compareSection');
         
@@ -251,65 +145,45 @@
             }
         });
 
-        // === URL 參數處理 ===
         function loadFromURL() {
             const params = new URLSearchParams(window.location.search);
             if (!params.has('baseGrow')) return false; 
+            if (params.has('petName')) document.getElementById('petSearch').value = params.get('petName');
+            document.getElementById('baseGrow').value = params.get('baseGrow');
+            document.getElementById('bpRateVal').value = params.get('bpRateVal');
+            document.getElementById('petLevel').value = params.get('petLevel');
+            document.getElementById('remainingPoints').value = params.get('remainingPoints');
+            document.getElementById('targetStats').value = params.get('targetStats');
 
-            // 1. 載入寵物名稱
-            if (params.has('petName')) {
-                const petName = params.get('petName');
-                document.getElementById('petSearch').value = petName;
-            }
-
-            if (params.has('baseGrow')) document.getElementById('baseGrow').value = params.get('baseGrow');
-            if (params.has('bpRateVal')) document.getElementById('bpRateVal').value = params.get('bpRateVal');
-            
-            // 載入第一組
-            if (params.has('petLevel')) document.getElementById('petLevel').value = params.get('petLevel');
-            if (params.has('remainingPoints')) document.getElementById('remainingPoints').value = params.get('remainingPoints');
-            if (params.has('targetStats')) document.getElementById('targetStats').value = params.get('targetStats');
-
-            // 載入第二組 (比對用)
             if (params.has('compare') && params.get('compare') === '1') {
                 enableCompareChk.checked = true;
                 compareSection.classList.add('show');
-                if (params.has('petLevel2')) document.getElementById('petLevel2').value = params.get('petLevel2');
-                if (params.has('remainingPoints2')) document.getElementById('remainingPoints2').value = params.get('remainingPoints2');
-                if (params.has('targetStats2')) document.getElementById('targetStats2').value = params.get('targetStats2');
-                
-                // 確保 Required 屬性被加上
+                document.getElementById('petLevel2').value = params.get('petLevel2') || '1';
+                document.getElementById('remainingPoints2').value = params.get('remainingPoints2') || '0';
+                document.getElementById('targetStats2').value = params.get('targetStats2') || '';
                 document.getElementById('petLevel2').setAttribute('required', 'required');
                 document.getElementById('remainingPoints2').setAttribute('required', 'required');
                 document.getElementById('targetStats2').setAttribute('required', 'required');
             }
-
             return true;
         }
 
         function generateShareURL() {
             const params = new URLSearchParams();
-            
-            // 1. 加入寵物名稱 (如果有的話)
             const petName = document.getElementById('petSearch').value;
-            if (petName) {
-                params.set('petName', petName);
-            }
-
+            if (petName) params.set('petName', petName);
             params.set('baseGrow', document.getElementById('baseGrow').value);
             params.set('bpRateVal', document.getElementById('bpRateVal').value);
             params.set('petLevel', document.getElementById('petLevel').value);
             params.set('remainingPoints', document.getElementById('remainingPoints').value);
             params.set('targetStats', document.getElementById('targetStats').value);
 
-            // 2. 加入比較參數 (如果開啟的話)
             if (enableCompareChk.checked) {
                 params.set('compare', '1');
                 params.set('petLevel2', document.getElementById('petLevel2').value);
                 params.set('remainingPoints2', document.getElementById('remainingPoints2').value);
                 params.set('targetStats2', document.getElementById('targetStats2').value);
             }
-
             return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
         }
 
@@ -317,47 +191,35 @@
             navigator.clipboard.writeText(text).then(() => {
                 const btn = document.getElementById('shareBtn');
                 const originalText = btn.innerHTML;
-                btn.innerHTML = '✓ 已複製到剪貼簿';
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-info');
+                btn.innerHTML = '✓ 已複製';
+                btn.classList.replace('btn-success', 'btn-info');
                 setTimeout(() => {
                     btn.innerHTML = originalText;
-                    btn.classList.remove('btn-info');
-                    btn.classList.add('btn-success');
+                    btn.classList.replace('btn-info', 'btn-success');
                 }, 2000);
-            }).catch(err => {
-                console.error('複製失敗:', err);
-                alert('複製失敗，請手動複製 URL');
-            });
+            }).catch(err => alert('複製失敗'));
         };
 
-        // ... (initPetData, init, searchInput 相關邏輯保持不變) ...
         let petData = [];
         let growToNameMap = {};
-        async function initPetData() {
-            try {
-                let converter = null;
-                if (window.OpenCC) converter = await window.OpenCC.Converter({ from: 'tw', to: 'cn' });
-                const response = await fetch('./originmood-pet-data.json');
-                if (!response.ok) throw new Error('無法載入寵物資料檔');
-                const json = await response.json();
-                petData = Object.entries(json).map(([key, value]) => {
-                    const simpleName = converter ? converter(key) : key;
-                    const rawGrow = value.grow;
-                    const normalizedGrowKey = rawGrow.replace(/\s+/g, '');
-                    if (!growToNameMap[normalizedGrowKey]) growToNameMap[normalizedGrowKey] = [];
-                    growToNameMap[normalizedGrowKey].push(key);
-                    return { name: key, searchKey: simpleName, grow: value.grow };
-                });
-            } catch (err) {}
-        }
         async function init() {
-            await initPetData();
-            const hasParams = loadFromURL();
-            if (hasParams) {
-                setTimeout(() => {
-                    document.getElementById('calculatorForm').dispatchEvent(new Event('submit'));
-                }, 100);
+            try {
+                let converter = window.OpenCC ? await window.OpenCC.Converter({ from: 'tw', to: 'cn' }) : null;
+                const response = await fetch('./originmood-pet-data.json');
+                if (response.ok) {
+                    const json = await response.json();
+                    petData = Object.entries(json).map(([key, value]) => {
+                        const simpleName = converter ? converter(key) : key;
+                        const normalizedGrowKey = value.grow.replace(/\s+/g, '');
+                        if (!growToNameMap[normalizedGrowKey]) growToNameMap[normalizedGrowKey] = [];
+                        growToNameMap[normalizedGrowKey].push(key);
+                        return { name: key, searchKey: simpleName, grow: value.grow };
+                    });
+                }
+            } catch (err) {}
+
+            if (loadFromURL()) {
+                setTimeout(() => document.getElementById('calculatorForm').dispatchEvent(new Event('submit')), 100);
             }
         }
         init();
@@ -369,7 +231,6 @@
         baseGrowInput.addEventListener('input', (e) => {
             const val = e.target.value;
             const lookupKey = val.trim().split(/[\s,，]+/).join(',');
-            // 只有當搜尋框是空的時候，才嘗試反查名稱填入，避免使用者剛打字被覆蓋
             if (growToNameMap[lookupKey] && searchInput.value === '') {
                 searchInput.value = growToNameMap[lookupKey].join(' / ');
                 searchInput.style.borderColor = "#198754";
@@ -403,8 +264,6 @@
             if (e.target !== searchInput && e.target !== resultsContainer) resultsContainer.style.display = 'none';
         });
 
-        // === 計算邏輯部分 ===
-
         function parseNumberArray(input) {
             return input.trim().replace(/,/g, ' ').split(/\s+/).map(n => parseFloat(n.trim())).filter(n => !isNaN(n));
         }
@@ -419,109 +278,80 @@
             document.getElementById('results').innerHTML = '';
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loadingText').innerText = "正在進行計算 (第一組)...";
+            document.getElementById('loadingText').innerText = "計算中 (第一組)...";
 
             const cancelBtn = document.getElementById('cancelBtn');
             cancelBtn.disabled = false;
             cancelBtn.textContent = '⛔ 中斷計算';
-            cancelBtn.onclick = () => {
-                if (abortController) {
-                    abortController.abort();
-                    cancelBtn.textContent = '正在中止...';
-                    cancelBtn.disabled = true;
-                }
-            };
+            cancelBtn.onclick = () => { if (abortController) { abortController.abort(); cancelBtn.textContent = '正在中止...'; cancelBtn.disabled = true; } };
 
             setTimeout(async () => {
                 try {
-                    // 基本讀值 (第一組)
                     const baseGrow = parseNumberArray(document.getElementById('baseGrow').value);
                     const bpRateVal = parseInt(document.getElementById('bpRateVal').value);
                     const isCompareEnabled = enableCompareChk.checked;
 
-                    // 參數處理 Helper
+                    // 支援讀取 5 或 7 個參數
                     const getParams = (suffix = '') => {
                         const lvl = parseInt(document.getElementById(`petLevel${suffix}`).value);
                         const pts = parseInt(document.getElementById(`remainingPoints${suffix}`).value);
                         const statsArr = parseNumberArray(document.getElementById(`targetStats${suffix}`).value);
-                        if (statsArr.length !== 5) throw new Error(`輸入錯誤：${suffix ? '第二組' : ''}素質必須包含 5 個數值`);
+                        if (statsArr.length !== 5 && statsArr.length !== 7) throw new Error(`輸入錯誤：${suffix ? '第二組' : ''}素質必須是 5 個(僅5圍) 或 7 個(含精回)數值`);
+                        
                         const stats = { hp: statsArr[0], mp: statsArr[1], atk: statsArr[2], def: statsArr[3], agi: statsArr[4] };
+                        if (statsArr.length >= 7) {
+                            stats.spt = statsArr[5];
+                            stats.rec = statsArr[6];
+                        }
                         return { lvl, pts, stats };
                     };
 
                     const p1 = getParams('');
                     
-                    // --- 步驟 1: 計算第一組 ---
                     const result1 = await smartReverseCalculateMatrix(
                         baseGrow, p1.stats, p1.lvl, bpRateVal / 100, 0, p1.pts, null, abortController.signal
                     );
                     
                     let finalResults = result1.results;
-                    let summaryStats = {
-                        execTime: parseFloat(result1.executionTime),
-                        tested: result1.totalCombinationsTested
-                    };
+                    let summaryStats = { execTime: parseFloat(result1.executionTime), tested: result1.totalCombinationsTested };
 
-                    // --- 步驟 2: 如果有比較 ---
                     if (isCompareEnabled && finalResults.length > 0) {
                         const p2 = getParams('2');
-
+                        
                         if (p2.lvl === 1) {
-                            // *** 狀況 A: 比較基準是 1 等 ***
-                            // 直接正算檢查 (比對結果不變，僅做過濾)
                             document.getElementById('loadingText').innerText = "正在比對 1 等數據...";
-                            
                             finalResults = finalResults.filter(item => {
-                                // item.actualGrow 是 (成長 - 掉檔) 的結果
                                 const testRes = calculatePetStats(item.actualGrow, item.randomCombo, 1, [0,0,0,0,0]);
-                                // 使用者看到的介面都是取整的結果而以
-                                const isHpMatch  = Math.floor(testRes.stats.hp)  === p2.stats.hp;
-                                const isMpMatch  = Math.floor(testRes.stats.mp)  === p2.stats.mp;
-                                const isAtkMatch = Math.floor(testRes.stats.atk) === p2.stats.atk;
-                                const isDefMatch = Math.floor(testRes.stats.def) === p2.stats.def;
-                                const isAgiMatch = Math.floor(testRes.stats.agi) === p2.stats.agi;
-
-                                // 1等必須完全吻合
-                                return isHpMatch && isMpMatch && isAtkMatch && isDefMatch && isAgiMatch;
+                                let match = true;
+                                if (Math.floor(testRes.stats.hp) !== p2.stats.hp) match = false;
+                                if (Math.floor(testRes.stats.mp) !== p2.stats.mp) match = false;
+                                if (Math.floor(testRes.stats.atk) !== p2.stats.atk) match = false;
+                                if (Math.floor(testRes.stats.def) !== p2.stats.def) match = false;
+                                if (Math.floor(testRes.stats.agi) !== p2.stats.agi) match = false;
+                                if (p2.stats.spt !== undefined && Math.floor(testRes.stats.spt) !== p2.stats.spt) match = false;
+                                if (p2.stats.rec !== undefined && Math.floor(testRes.stats.rec) !== p2.stats.rec) match = false;
+                                return match;
                             });
-
                         } else {
-                            // *** 狀況 B: 比較基準也是 N 等 (>1) ***
-                            // 進行第二組逆算
-                            document.getElementById('loadingText').innerText = "正在進行計算 (第二組)...";
-                            await new Promise(r => setTimeout(r, 0)); // Yield UI
-
-                            const result2 = await smartReverseCalculateMatrix(
-                                baseGrow, p2.stats, p2.lvl, bpRateVal / 100, 0, p2.pts, null, abortController.signal
-                            );
-
+                            document.getElementById('loadingText').innerText = "計算中 (第二組)...";
+                            await new Promise(r => setTimeout(r, 0));
+                            const result2 = await smartReverseCalculateMatrix(baseGrow, p2.stats, p2.lvl, bpRateVal / 100, 0, p2.pts, null, abortController.signal);
                             summaryStats.execTime += parseFloat(result2.executionTime);
                             summaryStats.tested += result2.totalCombinationsTested;
 
-                            // 取交集：使用 (掉檔 + 隨機檔) 作為唯一 Key
-                            const set2Keys = new Set(result2.results.map(r => 
-                                r.dropCombo.join(',') + '|' + r.randomCombo.join(',')
-                            ));
-
-                            finalResults = finalResults.filter(r1 => {
-                                const key = r1.dropCombo.join(',') + '|' + r1.randomCombo.join(',');
-                                return set2Keys.has(key);
-                            });
+                            const set2Keys = new Set(result2.results.map(r => r.dropCombo.join(',') + '|' + r.randomCombo.join(',')));
+                            finalResults = finalResults.filter(r1 => set2Keys.has(r1.dropCombo.join(',') + '|' + r1.randomCombo.join(',')));
                         }
                     }
 
-                    // --- 步驟 3: 顯示結果 (包含特性配點過濾) ---
                     displayResults(finalResults, summaryStats, baseGrow, isCompareEnabled ? finalResults.length : result1.results.length);
 
                 } catch (error) {
                     if (error.message === 'ABORTED' || error.name === 'AbortError') {
-                        document.getElementById('results').innerHTML = `
-                            <div class="alert alert-warning border border-warning">
-                                <h4>🛑 已中斷計算</h4>
-                                <p class="mb-0">您已手動停止運算。</p>
-                            </div>`;
+                        document.getElementById('results').innerHTML = `<div class="alert alert-warning">🛑 已中斷計算</div>`;
                     } else {
-                        showError(error.message);
+                        document.getElementById('errorMessage').innerText = error.message;
+                        document.getElementById('errorMessage').style.display = 'block';
                         console.error(error);
                     }
                 } finally {
@@ -531,114 +361,63 @@
             }, 50);
         });
 
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.innerText = message;
-            errorDiv.style.display = 'block';
-        }
-
         function displayResults(data, summary, baseGrow, preFilterCount) {
-            const shareURL = generateShareURL();
+             const shareURL = generateShareURL();
             const shareButtonHTML = `
                 <div class="alert alert-success d-flex align-items-center justify-content-between">
-                    <div>
-                        <strong>🔗 分享此次計算</strong>
-                        <p class="mb-0 small text-muted">包含寵物名稱與比對設定</p>
-                    </div>
-                    <button id="shareBtn" class="btn btn-success" onclick="copyToClipboard('${shareURL.replace(/'/g, "\\'")}')">
-                        📋 複製分享連結
-                    </button>
-                </div>
-            `;
+                    <div><strong>🔗 分享計算結果</strong><p class="mb-0 small text-muted">包含比對設定</p></div>
+                    <button id="shareBtn" class="btn btn-success" onclick="copyToClipboard('${shareURL.replace(/'/g, "\\'")}')">📋 複製網址</button>
+                </div>`;
 
             if (data.length === 0) {
-                document.getElementById('results').innerHTML = `
-                    ${shareButtonHTML}
-                    <div class="alert alert-warning">
-                        <strong>未找到符合條件的組合</strong>
-                        <p class="mb-0">若使用了比較功能，表示兩組素質來自不同體質的寵物，或輸入有誤。</p>
-                    </div>
-                `;
+                document.getElementById('results').innerHTML = `${shareButtonHTML}<div class="alert alert-warning"><strong>未找到符合條件的組合</strong></div>`;
                 return;
             }
 
-            // === 應用最佳配點策略過濾 ===
             const beforeStrategyCount = data.length;
             const filteredData = filterBestStrategies(data);
             const finalCount = filteredData.length;
-
             const groupedResults = groupByDropAndManual(filteredData);
             const dropStats = calculateDropStats(filteredData, baseGrow);
 
-            let filterMsg = '';
-            if (finalCount < beforeStrategyCount) {
-                filterMsg += `<div class="mb-2">⚡ 智能配點過濾：從 ${beforeStrategyCount} 筆刪減至 <strong>${finalCount}</strong> 筆 (剔除雜亂配點)</div>`;
-            }
-            if (enableCompareChk.checked) {
-                filterMsg = `<div class="mb-2 text-primary">🔍 比較過濾啟用：原始第一組符合筆數 ${preFilterCount} -> 經由比對後剩下 ${beforeStrategyCount}</div>` + filterMsg;
-            }
+            let filterMsg = `<div>智能過濾：${beforeStrategyCount} → <strong>${finalCount}</strong> 筆最佳解</div>`;
+            if (enableCompareChk.checked) filterMsg = `<div>比對過濾：原始 ${preFilterCount} → 符合 ${beforeStrategyCount}</div>` + filterMsg;
 
             let html = `
                 ${shareButtonHTML}
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">計算結果</h5>
-
                         <div class="summary-stats">
-                            <h6>最終符合：${finalCount}</h6>
-                            <div class="small text-muted mb-2">
-                                ${filterMsg}
-                            </div>
-                            <p class="mb-2"><strong>總運算時間：</strong>${summary.execTime.toFixed(3)} 秒</p>
-                            <p class="mb-0"><strong>總測試組合：</strong>${summary.tested.toLocaleString()}</p>
+                            <h6>最終結果：${finalCount} 筆</h6>
+                            <div class="small text-muted mb-2">${filterMsg}</div>
+                            <p class="mb-0 small">耗時：${summary.execTime.toFixed(3)}s | 測試：${summary.tested.toLocaleString()}</p>
                         </div>
-
-                        <div class="alert alert-info">
-                            <h6 class="alert-heading">掉檔統計 (基於顯示結果)</h6>
-                            <p class="mb-2"><strong>總掉檔落在 ${dropStats.totalDropRange.min}-${dropStats.totalDropRange.max} 檔</strong></p>
-                            ${dropStats.certainDrops.length > 0
-                                ? `<p class="mb-0">發現定檔：${dropStats.certainDrops.join('、')}</p>`
-                                : '<p class="mb-0 text-muted">目前無法確定特定單項掉檔</p>'}
+                        <div class="alert alert-info py-2">
+                            <h6 class="alert-heading mb-1">掉檔統計</h6>
+                            <small>總掉檔：${dropStats.totalDropRange.min}~${dropStats.totalDropRange.max} 檔 ${dropStats.certainDrops.length > 0 ? `| ${dropStats.certainDrops.join(' ')}` : ''}</small>
                         </div>
-
-                        <h6 class="mt-4 mb-3">顯示 ${Object.keys(groupedResults).length} 組結果 (合併同掉檔/同加點)</h6>
+                        <h6 class="mt-3 mb-2">顯示 ${Object.keys(groupedResults).length} 組分類結果</h6>
                         ${renderGroupedResults(groupedResults, finalCount)}
                     </div>
-                </div>
-            `;
+                </div>`;
             document.getElementById('results').innerHTML = html;
         }
 
-        // ... (filterBestStrategies, groupByDropAndManual, calculateDropStats, renderGroupedResults, toggleGroup, renderRandomCombo, formatManualPoints 保持不變) ...
-        
-        // 為了完整性，將其餘輔助函數一併貼上
         function filterBestStrategies(results) {
             if (!results || results.length === 0) return [];
             const getComplexity = (points) => points.filter(p => p > 0).length;
-            const getTotalError = (row) => row.diffs ? 
-                Math.abs(row.diffs.hp)+Math.abs(row.diffs.mp)+Math.abs(row.diffs.atk)+Math.abs(row.diffs.def)+Math.abs(row.diffs.agi) : 
-                Math.abs(row.sumDiff || 0);
+            const getTotalError = (row) => row.diffs ? (Math.abs(row.diffs.hp)+Math.abs(row.diffs.mp)+Math.abs(row.diffs.atk)+Math.abs(row.diffs.def)+Math.abs(row.diffs.agi)) : Math.abs(row.sumDiff || 0);
 
             const sortedResults = [...results].sort((a, b) => {
-                const compA = getComplexity(a.manualPoints);
-                const compB = getComplexity(b.manualPoints);
-                if (compA !== compB) return compA - compB;
-                const errA = getTotalError(a);
-                const errB = getTotalError(b);
-                if (errA !== errB) return errA - errB;
-                // 若都一樣，比較隨機檔大小總和 (heuristic，非必要)
-                return 0; 
+                const diffC = getComplexity(a.manualPoints) - getComplexity(b.manualPoints);
+                if (diffC !== 0) return diffC;
+                return getTotalError(a) - getTotalError(b);
             });
 
             const best = sortedResults[0];
             const bestComplexity = getComplexity(best.manualPoints);
             const bestError = getTotalError(best);
-            
-            return sortedResults.filter(row => {
-                if (getComplexity(row.manualPoints) !== bestComplexity) return false;
-                if (getTotalError(row) !== bestError) return false;
-                return true;
-            });
+            return sortedResults.filter(row => getComplexity(row.manualPoints) === bestComplexity && getTotalError(row) === bestError);
         }
 
         function groupByDropAndManual(data) {
@@ -652,10 +431,8 @@
         }
 
         function calculateDropStats(data, baseGrow) {
-            let totalDropMin = Infinity;
-            let totalDropMax = -Infinity;
+            let totalDropMin = Infinity, totalDropMax = -Infinity;
             const attrDropRanges = Array(5).fill().map(() => ({ min: Infinity, max: -Infinity }));
-
             data.forEach(item => {
                 const totalDrop = item.dropCombo.reduce((sum, d) => sum + d, 0);
                 totalDropMin = Math.min(totalDropMin, totalDrop);
@@ -667,10 +444,9 @@
             });
             const certainDrops = [];
             attrDropRanges.forEach((range, i) => {
-                if (range.min === range.max && range.min > 0) certainDrops.push(`${ATTR_NAMES[i]}必定-${range.min}`);
-                else if (range.min > 0) certainDrops.push(`${ATTR_NAMES[i]}至少-${range.min}`);
+                if (range.min === range.max && range.min > 0) certainDrops.push(`${ATTR_NAMES[i]}-${range.min}`);
             });
-            return { totalDropRange: { min: totalDropMin, max: totalDropMax }, certainDrops: certainDrops };
+            return { totalDropRange: { min: totalDropMin, max: totalDropMax }, certainDrops };
         }
 
         function renderGroupedResults(groupedResults, totalCount) {
@@ -679,78 +455,60 @@
             const sortedGroups = Object.entries(groupedResults).sort((a, b) => b[1].length - a[1].length);
 
             sortedGroups.forEach(([groupKey, items]) => {
-                const percentage = ((items.length / totalCount) * 100).toFixed(2);
+                const percentage = ((items.length / totalCount) * 100).toFixed(1);
                 const [dropComboStr, manualPointsStr] = groupKey.split('|');
                 const dropCombo = dropComboStr.split(',').map(n => parseInt(n));
                 const manualPoints = manualPointsStr.split(',').map(n => parseInt(n));
-                const manualPointsText = formatManualPoints(manualPoints);
                 
                 html += `
                     <div class="result-group">
                         <div class="group-header" onclick="document.dispatchEvent(new CustomEvent('toggle-group', {detail: ${groupIndex}}))">
                             <span class="expand-icon" id="icon-${groupIndex}">▶</span>
-                            <span class="percentage">${percentage}%</span>
-                            <div class="mt-2">
-                                <strong>掉檔：</strong>${dropCombo.map((d, i) => `${ATTR_NAMES[i]}${d}`).join(' ')}
-                            </div>
-                            <div class="mt-1">
-                                <strong>加點：</strong>${manualPointsText}
-                            </div>
-                            <div class="mt-1 text-muted" style="font-size: 0.9em;">
-                                <em>點擊展開 ${items.length} 個隨機檔組合</em>
-                            </div>
+                            <span class="percentage ms-2">${percentage}%</span>
+                            <span class="ms-3">掉檔: ${dropCombo.map((d, i) => d>0 ? `${ATTR_NAMES[i]}-${d}`: null).filter(x=>x).join(' ') || '全滿'}</span>
+                            <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
                             ${items.map(item => renderRandomCombo(item)).join('')}
                         </div>
-                    </div>
-                `;
+                    </div>`;
                 groupIndex++;
             });
             return html;
         }
 
-        document.addEventListener('toggle-group', (e) => toggleGroup(e.detail));
-        function toggleGroup(index) {
-            const group = document.getElementById(`group-${index}`);
-            const icon = document.getElementById(`icon-${index}`);
-            if (group.classList.contains('show')) {
-                group.classList.remove('show');
-                icon.classList.remove('expanded');
-            } else {
-                group.classList.add('show');
-                icon.classList.add('expanded');
-            }
-        }
+        document.addEventListener('toggle-group', (e) => {
+            const group = document.getElementById(`group-${e.detail}`);
+            const icon = document.getElementById(`icon-${e.detail}`);
+            group.classList.toggle('show');
+            icon.classList.toggle('expanded');
+        });
 
         function renderRandomCombo(item) {
-            let statusHtml = '';
-            if (item.isExact) statusHtml = '<span class="badge bg-success ms-2">完全吻合</span>';
-            else {
-                const sign = item.sumDiff > 0 ? '+' : '';
-                const diffText = item.sumDiff === 0 ? '±1' : `${sign}${item.sumDiff}`;
-                statusHtml = `<span class="badge bg-warning text-dark ms-2">總和誤差 ${diffText}</span>`;
-            }
+            let statusHtml = item.isExact ? '<span class="badge bg-success">完全吻合</span>' : `<span class="badge bg-warning text-dark">誤差 ${item.sumDiff > 0 ? '+':''}${item.sumDiff}</span>`;
+            
+            // 確保有包含精與回
             return `
                 <div class="combo-item">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><strong>隨機檔：</strong>${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}</div>
-                        <div>${statusHtml}</div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div><small>隨機:</small> ${item.randomCombo.map((r, i) => `${ATTR_NAMES[i]}${r}`).join(' ')}</div>
+                        ${statusHtml}
                     </div>
-                    <div class="mt-1">
-                        <span class="stat-badge">HP: ${item.stats.hp.toFixed(2)}</span>
-                        <span class="stat-badge">MP: ${item.stats.mp.toFixed(2)}</span>
-                        <span class="stat-badge">ATK: ${item.stats.atk.toFixed(2)}</span>
-                        <span class="stat-badge">DEF: ${item.stats.def.toFixed(2)}</span>
-                        <span class="stat-badge">AGI: ${item.stats.agi.toFixed(2)}</span>
+                    <div>
+                        <span class="stat-badge">HP: ${item.stats.hp.toFixed(0)}</span>
+                        <span class="stat-badge">MP: ${item.stats.mp.toFixed(0)}</span>
+                        <span class="stat-badge">攻: ${item.stats.atk.toFixed(0)}</span>
+                        <span class="stat-badge">防: ${item.stats.def.toFixed(0)}</span>
+                        <span class="stat-badge">敏: ${item.stats.agi.toFixed(0)}</span>
+                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">精: ${item.stats.spt.toFixed(0)}</span>
+                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">回: ${item.stats.rec.toFixed(0)}</span>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function formatManualPoints(points) {
-            const nonZero = points.map((p,i) => p > 0 ? `${ATTR_NAMES[i]}${p}點` : null).filter(p => p);
-            return nonZero.length > 0 ? nonZero.join('，') : '無加點';
+            const nonZero = points.map((p,i) => p > 0 ? `${ATTR_NAMES[i]}+${p}` : null).filter(p => p);
+            return nonZero.length > 0 ? nonZero.join(' ') : '無';
         }
     </script>
 </body>
