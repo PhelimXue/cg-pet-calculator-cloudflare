@@ -15,13 +15,20 @@
         .stat-value { font-size: 1.8em; font-weight: bold; color: #0d6efd; line-height: 1.2; }
         .stat-label { color: #6c757d; font-size: 0.9em; margin-bottom: 5px; }
         
-        .bp-control { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #e9ecef; border-radius: 6px; margin-bottom: 10px; }
-        .bp-btn { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
-        .bp-val { font-weight: bold; min-width: 50px; text-align: center; font-size: 1.25em; color: #333; }
+        /* 修改後的配點控制器樣式 */
+        .bp-control { display: flex; align-items: center; padding: 8px 12px; background: #e9ecef; border-radius: 6px; margin-bottom: 8px; height: 50px; }
+        .bp-label { font-weight: bold; color: #555; width: 50px; flex-shrink: 0; }
+        .bp-data-area { display: flex; align-items: center; flex-grow: 1; justify-content: flex-end; gap: 8px; }
+        
+        .bp-val-total { font-size: 1.25rem; font-weight: bold; color: #333; text-align: right; min-width: 70px; }
+        .bp-val-added { font-size: 0.95rem; font-weight: bold; color: #198754; width: 40px; text-align: right; }
+        
+        .bp-btn-group { display: flex; gap: 5px; margin-left: 10px; }
+        .bp-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border-radius: 4px; }
         
         .bp-limit-reached { color: #dc3545; font-size: 0.8em; margin-left: 5px; display: none; }
-        .bp-control.limit-hit .bp-limit-reached { display: inline; }
-
+        .bp-control.limit-hit .bp-val-total { color: #dc3545; } /* 達上限時總數字變紅 */
+        
         .level-control { display: flex; align-items: center; justify-content: center; gap: 20px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .main-stat-display { background-color: #cfe2ff; border-color: #b6d4fe; }
         
@@ -51,10 +58,7 @@
             opacity: 0;
             transition: opacity 0.3s ease, bottom 0.3s ease;
         }
-        .toast-message.show {
-            opacity: 1;
-            bottom: 40px;
-        }
+        .toast-message.show { opacity: 1; bottom: 40px; }
 
         input.form-control, select.form-select { text-align: center; font-weight: 500; }
         .setting-label { font-size: 0.95rem; margin-bottom: 6px; font-weight: bold; color: #495057; }
@@ -89,7 +93,7 @@
             </div>
         </div>
 
-        <!-- Row 2: 基礎設定 (拆分成兩行) -->
+        <!-- Row 2: 基礎設定 -->
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card">
@@ -97,7 +101,6 @@
                         <span class="fw-bold fs-5">⚙️ 基礎設定</span>
                     </div>
                     <div class="card-body py-3">
-                        
                         <!-- 設定第一行：原始成長 + 成長係數 -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-9 col-sm-12">
@@ -109,7 +112,6 @@
                                 <input type="number" class="form-control form-control-lg bg-light" id="bpRate" value="0.2" step="0.01">
                             </div>
                         </div>
-
                         <!-- 設定第二行：掉檔 + 隨機檔 -->
                         <div class="row g-3">
                             <div class="col-md-6 col-sm-12">
@@ -133,7 +135,6 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -196,7 +197,7 @@
         </div>
     </div>
 
-    <!-- Script 部分保持不變 -->
+    <!-- Script 部分 -->
     <script type="module">
         import { calculatePetStats } from './js/logic.js';
 
@@ -247,31 +248,20 @@
         function setupLongPress(element, action) {
             let timer;
             let interval;
-            
-            const clear = () => {
-                clearTimeout(timer);
-                clearInterval(interval);
-            };
-
+            const clear = () => { clearTimeout(timer); clearInterval(interval); };
             const start = (e) => {
                 if (element.disabled) return;
-                
                 if(e.cancelable && e.type !== 'mousedown') e.preventDefault(); 
                 action(); 
                 timer = setTimeout(() => {
                     interval = setInterval(() => {
-                        if (element.disabled) {
-                            clear();
-                        } else {
-                            action(); 
-                        }
+                        if (element.disabled) clear();
+                        else action(); 
                     }, 50); 
                 }, 400);
             };
-
             element.addEventListener('mousedown', start);
             element.addEventListener('touchstart', start, {passive: false});
-
             element.addEventListener('mouseup', clear);
             element.addEventListener('mouseleave', clear);
             element.addEventListener('touchend', clear);
@@ -293,7 +283,6 @@
 
         async function init() {
             initRandomSelects();
-
             try {
                 let converter = window.OpenCC ? await window.OpenCC.Converter({ from: 'tw', to: 'cn' }) : null;
                 const response = await fetch('./originmood-pet-data.json');
@@ -308,10 +297,8 @@
 
             const params = new URLSearchParams(window.location.search);
             if(params.has('petName')) updatePetName(params.get('petName'));
-            
             if(params.has('baseGrow')) els.baseGrow.value = params.get('baseGrow');
             if(params.has('rate')) els.bpRate.value = params.get('rate');
-            
             if(params.has('drop')) {
                 const ds = params.get('drop').split(',').map(Number);
                 ds.forEach((d, i) => { if(els.drops[i]) els.drops[i].value = d; });
@@ -320,12 +307,10 @@
                 const rs = params.get('rand').split(',').map(Number);
                 rs.forEach((r, i) => { if(els.rands[i]) els.rands[i].value = r; });
             }
-
             if(params.has('lvl')) {
                 const lvl = parseInt(params.get('lvl'));
                 if (!isNaN(lvl) && lvl >= 1) state.level = lvl;
             }
-
             if(params.has('manual')) {
                 const mPoints = params.get('manual').split(',').map(Number);
                 if (mPoints.length === 5) state.manualBp = mPoints.map(p => isNaN(p) ? 0 : p);
@@ -334,7 +319,6 @@
             renderBpControls();
             setupSearch();
             setupShare();
-            
             updateStateFromDOM();
             refreshUI();
 
@@ -345,17 +329,8 @@
             
             setupLongPress(document.getElementById('lvlUp'), () => changeLevel(1));
             setupLongPress(document.getElementById('lvlDown'), () => changeLevel(-1));
-
-            document.getElementById('resetBpBtn').addEventListener('click', () => {
-                state.manualBp = [0,0,0,0,0];
-                refreshUI();
-            });
-
-            document.getElementById('resetLvlBtn').addEventListener('click', () => {
-                state.level = 1;
-                state.manualBp = [0,0,0,0,0];
-                refreshUI();
-            });
+            document.getElementById('resetBpBtn').addEventListener('click', () => { state.manualBp = [0,0,0,0,0]; refreshUI(); });
+            document.getElementById('resetLvlBtn').addEventListener('click', () => { state.level = 1; state.manualBp = [0,0,0,0,0]; refreshUI(); });
         }
 
         function updatePetName(name) {
@@ -374,7 +349,6 @@
                 const term = e.target.value.trim();
                 els.results.innerHTML = '';
                 if (term.length === 0) { els.results.style.display = 'none'; return; }
-                
                 const matches = petData.filter(pet => pet.name.includes(term) || pet.searchKey.includes(term));
                 if (matches.length > 0) {
                     matches.forEach(pet => {
@@ -391,14 +365,9 @@
                         els.results.appendChild(item);
                     });
                     els.results.style.display = 'block';
-                } else {
-                    els.results.style.display = 'none';
-                }
+                } else { els.results.style.display = 'none'; }
             });
-
-            document.addEventListener('click', (e) => {
-                if (e.target !== els.search && e.target !== els.results) els.results.style.display = 'none';
-            });
+            document.addEventListener('click', (e) => { if (e.target !== els.search && e.target !== els.results) els.results.style.display = 'none'; });
         }
 
         function setupShare() {
@@ -411,26 +380,33 @@
                 params.set('rate', state.rate);
                 params.set('lvl', state.level);
                 params.set('manual', state.manualBp.join(','));
-
                 const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-                
                 navigator.clipboard.writeText(shareUrl).then(() => {
                     const btn = document.getElementById('shareBtn');
                     const originalText = btn.innerHTML;
                     btn.innerHTML = '✓ 已複製';
                     setTimeout(() => btn.innerHTML = originalText, 2000);
-                }).catch(() => alert('複製失敗，請手動複製網址列'));
+                }).catch(() => alert('複製失敗'));
             });
         }
 
+        // 修改後的 renderBpControls
         function renderBpControls() {
             els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
                 <div class="bp-control" id="bpRow${i}">
-                    <span style="font-weight:bold; color:#555;">${name}<span class="bp-limit-reached">(達上限)</span></span>
-                    <div class="d-flex align-items-center">
-                        <button class="btn btn-outline-danger bp-btn me-2" id="btnBpDec${i}">-</button>
-                        <span class="bp-val" id="manualVal${i}">0</span>
-                        <button class="btn btn-outline-primary bp-btn ms-2" id="btnBpInc${i}">+</button>
+                    <span class="bp-label">${name}</span>
+                    <div class="bp-data-area">
+                        <!-- 總 BP 顯示 -->
+                        <span class="bp-val-total" id="totalVal${i}">0</span>
+                        
+                        <!-- 綠色加點顯示 -->
+                        <span class="bp-val-added" id="addedVal${i}">+0</span>
+                        
+                        <!-- 按鈕組 -->
+                        <div class="bp-btn-group">
+                            <button class="btn btn-outline-danger bp-btn" id="btnBpDec${i}">-</button>
+                            <button class="btn btn-outline-primary bp-btn" id="btnBpInc${i}">+</button>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -457,42 +433,30 @@
         }
 
         function changeLevel(delta) {
-            if (delta === 1) {
-                state.level++;
-            } else if (delta === -1) {
+            if (delta === 1) state.level++;
+            else if (delta === -1) {
                 if (state.level <= 1) return;
-                
                 const usedBp = state.manualBp.reduce((a, b) => a + b, 0);
                 const nextMaxBp = state.level - 2; 
-
-                if (usedBp > nextMaxBp) {
-                    showToast("已分配點數過多，請先重置或減少加點才能降等！");
-                    return;
-                }
+                if (usedBp > nextMaxBp) { showToast("已分配點數過多，請先重置或減少加點才能降等！"); return; }
                 state.level--;
             }
             refreshUI();
         }
 
         function changeBp(index, delta) {
-            if (delta === 1) {
-                if (getRemainingBp() > 0) {
-                    state.manualBp[index]++;
-                }
-            } else if (delta === -1) {
-                if (state.manualBp[index] > 0) {
-                    state.manualBp[index]--;
-                }
-            }
+            if (delta === 1) { if (getRemainingBp() > 0) state.manualBp[index]++; }
+            else if (delta === -1) { if (state.manualBp[index] > 0) state.manualBp[index]--; }
             refreshUI();
         }
 
         function updateBpButtons(baseBpArray) {
             const remaining = getRemainingBp();
             
-            const totalBaseBp = baseBpArray.reduce((acc, val) => acc + Math.floor(val), 0);
+            // 使用 Math.floor 計算計算單項爆點的判斷依據
+            const totalBaseBpFloor = baseBpArray.reduce((acc, val) => acc + Math.floor(val), 0);
             const totalLevelPoints = state.level - 1;
-            const grandTotal = totalBaseBp + totalLevelPoints;
+            const grandTotal = totalBaseBpFloor + totalLevelPoints;
             const limit = Math.floor(grandTotal / 2);
 
             ATTR_NAMES.forEach((_, i) => {
@@ -500,20 +464,15 @@
                 const btnDec = document.getElementById(`btnBpDec${i}`);
                 const row = document.getElementById(`bpRow${i}`);
 
-                // 計算當前單項數值 (原始取整 + 當前分配)
-                const currentVal = Math.floor(baseBpArray[i]) + state.manualBp[i];
+                // 判斷是否爆點：使用 (基礎BP無條件捨去 + 手動配點) 是否 >= 總BP的一半
+                // 若遊戲規則是看小數點後的總和，這裡拿掉 Math.floor 即可
+                const currentValForLimit = Math.floor(baseBpArray[i]) + state.manualBp[i];
+                
+                const isAtLimit = currentValForLimit >= limit;
+                if (isAtLimit) row.classList.add('limit-hit');
+                else row.classList.remove('limit-hit');
 
-                // 減號：只要有手動分配即可減
                 btnDec.disabled = (state.manualBp[i] <= 0);
-
-                const isAtLimit = currentVal >= limit;
-
-                if (isAtLimit) {
-                    row.classList.add('limit-hit');
-                } else {
-                    row.classList.remove('limit-hit');
-                }
-
                 btnInc.disabled = (remaining <= 0) || isAtLimit;
             });
         }
@@ -527,11 +486,17 @@
             const actualGrow = state.baseGrow.map((g, i) => g - (state.drop[i] || 0));
             const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
 
-            // 更新中間顯示的數值： 基礎BP (取整) + 手動分配點數
+            // 更新 BP 顯示數值
             state.manualBp.forEach((val, i) => {
-                const baseBpVal = Math.floor(result.baseBp[i]);
+                const baseBpVal = result.baseBp[i]; // 這是含小數點的原始計算值
                 const totalBp = baseBpVal + val;
-                document.getElementById(`manualVal${i}`).textContent = totalBp;
+                
+                // 更新總數值：保留小數點後兩位 (parseFloat 去除無效的 .00 讓整數顯示更好看，或者直接用 toFixed(2) 統一顯示)
+                document.getElementById(`totalVal${i}`).textContent = parseFloat(totalBp.toFixed(2));
+                
+                // 更新綠色加點數值
+                const addedText = val > 0 ? `+${val}` : '';
+                document.getElementById(`addedVal${i}`).textContent = addedText;
             });
 
             els.resultsStats.hp.textContent = result.stats.hp.toFixed(0);
@@ -542,7 +507,6 @@
             els.resultsStats.spt.textContent = result.stats.spt.toFixed(0);
             els.resultsStats.rec.textContent = result.stats.rec.toFixed(0);
 
-            // 更新按鈕狀態
             updateBpButtons(result.baseBp);
         }
 
