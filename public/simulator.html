@@ -16,6 +16,10 @@
         .bp-control { display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #e9ecef; border-radius: 6px; margin-bottom: 8px; }
         .bp-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         .bp-val { font-weight: bold; min-width: 30px; text-align: center; }
+        /* 限制狀態樣式 */
+        .bp-limit-reached { color: #dc3545; font-size: 0.8em; margin-left: 5px; display: none; }
+        .bp-control.limit-hit .bp-limit-reached { display: inline; }
+
         .level-control { display: flex; align-items: center; justify-content: center; gap: 15px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .main-stat-display { background-color: #cfe2ff; }
         .drop-select { width: 60px; display: inline-block; }
@@ -38,14 +42,14 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 9999;
             font-size: 0.95rem;
-            pointer-events: none; /* 讓點擊穿透，避免擋住操作 */
+            pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease, bottom 0.3s ease;
         }
 
         .toast-message.show {
             opacity: 1;
-            bottom: 40px; /* 稍微往上浮動的效果 */
+            bottom: 40px;
         }
     </style>
 </head>
@@ -95,12 +99,13 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">隨機檔 (0~10)</label>
+                            <!-- 任務1：隨機檔改為下拉選單 -->
                             <div class="d-flex gap-1">
-                                <input type="number" class="form-control px-1 text-center" id="rand0" value="2" min="0" max="10">
-                                <input type="number" class="form-control px-1 text-center" id="rand1" value="2" min="0" max="10">
-                                <input type="number" class="form-control px-1 text-center" id="rand2" value="2" min="0" max="10">
-                                <input type="number" class="form-control px-1 text-center" id="rand3" value="2" min="0" max="10">
-                                <input type="number" class="form-control px-1 text-center" id="rand4" value="2" min="0" max="10">
+                                <select class="form-select px-1 text-center" id="rand0"></select>
+                                <select class="form-select px-1 text-center" id="rand1"></select>
+                                <select class="form-select px-1 text-center" id="rand2"></select>
+                                <select class="form-select px-1 text-center" id="rand3"></select>
+                                <select class="form-select px-1 text-center" id="rand4"></select>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -128,8 +133,10 @@
 
                         <div id="manualBpContainer"></div>
                         
-                        <div class="d-grid mt-2">
-                             <button class="btn btn-outline-secondary btn-sm" id="resetBpBtn">重置加點</button>
+                        <!-- 任務2：新增重置等級功能 -->
+                        <div class="d-flex gap-2 mt-3">
+                             <button class="btn btn-outline-secondary btn-sm flex-grow-1" id="resetBpBtn">重置加點</button>
+                             <button class="btn btn-outline-danger btn-sm flex-grow-1" id="resetLvlBtn">重置等級</button>
                         </div>
                     </div>
                 </div>
@@ -218,7 +225,15 @@
 
         let petData = [];
 
-        // 幫元素綁定長按事件的輔助函式
+        // 初始化隨機檔下拉選單 (0~10)
+        function initRandomSelects() {
+            const optionsHtml = Array.from({length: 11}, (_, k) => `<option value="${k}">${k}</option>`).join('');
+            els.rands.forEach(select => {
+                select.innerHTML = optionsHtml;
+                select.value = "2"; // 預設值
+            });
+        }
+
         function setupLongPress(element, action) {
             let timer;
             let interval;
@@ -229,10 +244,20 @@
             };
 
             const start = (e) => {
+                // 如果是 disabled 的按鈕，不執行
+                if (element.disabled) return;
+                
                 if(e.cancelable && e.type !== 'mousedown') e.preventDefault(); 
                 action(); 
                 timer = setTimeout(() => {
-                    interval = setInterval(action, 50); 
+                    interval = setInterval(() => {
+                        // 每次重複前檢查是否 disabled
+                        if (element.disabled) {
+                            clear();
+                        } else {
+                            action(); 
+                        }
+                    }, 50); 
                 }, 400);
             };
 
@@ -259,6 +284,8 @@
         }
 
         async function init() {
+            initRandomSelects();
+
             // 載入寵物資料
             try {
                 let converter = window.OpenCC ? await window.OpenCC.Converter({ from: 'tw', to: 'cn' }) : null;
@@ -308,12 +335,19 @@
             els.baseGrow.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); });
             els.bpRate.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); });
             els.drops.forEach(el => el.addEventListener('change', () => { updateStateFromDOM(); refreshUI(); }));
-            els.rands.forEach(el => el.addEventListener('input', () => { updateStateFromDOM(); refreshUI(); }));
+            els.rands.forEach(el => el.addEventListener('change', () => { updateStateFromDOM(); refreshUI(); })); 
             
             setupLongPress(document.getElementById('lvlUp'), () => changeLevel(1));
             setupLongPress(document.getElementById('lvlDown'), () => changeLevel(-1));
 
             document.getElementById('resetBpBtn').addEventListener('click', () => {
+                state.manualBp = [0,0,0,0,0];
+                refreshUI();
+            });
+
+            // 任務2：綁定重置等級按鈕
+            document.getElementById('resetLvlBtn').addEventListener('click', () => {
+                state.level = 1;
                 state.manualBp = [0,0,0,0,0];
                 refreshUI();
             });
@@ -345,7 +379,6 @@
                         item.addEventListener('click', () => {
                             updatePetName(pet.name);
                             els.baseGrow.value = pet.grow.replace(/,/g, ' ');
-                            // 切換寵物時，保留掉檔/等級/加點設定，只變更成長檔和名稱
                             updateStateFromDOM();
                             refreshUI();
                             els.results.style.display = 'none';
@@ -387,8 +420,8 @@
 
         function renderBpControls() {
             els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
-                <div class="bp-control">
-                    <span>${name}</span>
+                <div class="bp-control" id="bpRow${i}">
+                    <span>${name}<span class="bp-limit-reached">(達上限)</span></span>
                     <div class="d-flex align-items-center">
                         <button class="btn btn-outline-danger bp-btn me-2" id="btnBpDec${i}">-</button>
                         <span class="bp-val" id="manualVal${i}">0</span>
@@ -410,7 +443,6 @@
             state.drop = els.drops.map(el => parseInt(el.value));
             state.random = els.rands.map(el => parseInt(el.value));
             state.rate = parseFloat(els.bpRate.value) || 0.2;
-            // petName is updated via search logic
         }
 
         function getRemainingBp() {
@@ -426,7 +458,6 @@
                 if (state.level <= 1) return;
                 
                 const usedBp = state.manualBp.reduce((a, b) => a + b, 0);
-                // 預測降級後的總 BP (目前Level - 1 再 - 1)
                 const nextMaxBp = state.level - 2; 
 
                 if (usedBp > nextMaxBp) {
@@ -440,6 +471,8 @@
 
         function changeBp(index, delta) {
             if (delta === 1) {
+                // 加點檢查現在主要由 updateBpButtons 來控制 disabled 狀態
+                // 這裡僅做有剩餘點數的基本檢查
                 if (getRemainingBp() > 0) {
                     state.manualBp[index]++;
                 }
@@ -449,6 +482,49 @@
                 }
             }
             refreshUI();
+        }
+
+        // 任務3修正：用完整閾值判斷上限
+        function updateBpButtons(baseBpArray) {
+            const remaining = getRemainingBp();
+            
+            // 1. 計算所有原始 BP 的整數總和 (基礎值)
+            const totalBaseBp = baseBpArray.reduce((acc, val) => acc + Math.floor(val), 0);
+            
+            // 2. 計算該等級總共的手動點數 (無論是否已分配)
+            // 例如等級 60，總共有 59 點手動點數
+            const totalLevelPoints = state.level - 1;
+
+            // 3. 計算理論最大總和 (基礎 + 滿額手動)
+            const grandTotal = totalBaseBp + totalLevelPoints;
+
+            // 4. 計算單項上限 (總和 / 2，無條件捨去)
+            const limit = Math.floor(grandTotal / 2);
+
+            ATTR_NAMES.forEach((_, i) => {
+                const btnInc = document.getElementById(`btnBpInc${i}`);
+                const btnDec = document.getElementById(`btnBpDec${i}`);
+                const row = document.getElementById(`bpRow${i}`);
+
+                // 計算當前單項數值 (原始取整 + 當前分配)
+                const currentVal = Math.floor(baseBpArray[i]) + state.manualBp[i];
+
+                // 減號：只要有手動分配即可減
+                btnDec.disabled = (state.manualBp[i] <= 0);
+
+                // 加號按鈕停用條件：
+                // 1. 沒有剩餘點數
+                // 2. 該數值已經 >= 上限
+                const isAtLimit = currentVal >= limit;
+
+                if (isAtLimit) {
+                    row.classList.add('limit-hit');
+                } else {
+                    row.classList.remove('limit-hit');
+                }
+
+                btnInc.disabled = (remaining <= 0) || isAtLimit;
+            });
         }
 
         function refreshUI() {
@@ -475,6 +551,9 @@
             els.resultsStats.rec.textContent = Math.floor(result.stats.rec);
 
             result.baseBp.forEach((b, i) => els.infos.b[i].textContent = b.toFixed(2));
+
+            // 更新按鈕狀態
+            updateBpButtons(result.baseBp);
         }
 
         init();
