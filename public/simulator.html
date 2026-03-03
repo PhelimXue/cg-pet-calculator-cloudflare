@@ -15,20 +15,67 @@
         .stat-value { font-size: 1.8em; font-weight: bold; color: #0d6efd; line-height: 1.2; }
         .stat-label { color: #6c757d; font-size: 0.9em; margin-bottom: 5px; }
         
-        /* 修改後的配點控制器樣式 */
-        .bp-control { display: flex; align-items: center; padding: 8px 12px; background: #e9ecef; border-radius: 6px; margin-bottom: 8px; height: 50px; }
-        .bp-label { font-weight: bold; color: #555; width: 50px; flex-shrink: 0; }
-        .bp-data-area { display: flex; align-items: center; flex-grow: 1; justify-content: flex-end; gap: 8px; }
+        /* --- 配點控制器樣式 (重點修改區) --- */
+        .bp-control { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; /* 左右分開 */
+            padding: 8px 12px; 
+            background: #e9ecef; 
+            border-radius: 8px; 
+            margin-bottom: 10px; 
+            height: 60px; /* 稍微加高好按 */
+        }
+
+        /* 左側資訊區：標籤 + 總數值 + 加點數值 */
+        .bp-info-area {
+            display: flex;
+            align-items: baseline; /* 文字底部對齊，看起來較整齊 */
+            gap: 10px;
+        }
+
+        .bp-label { 
+            font-weight: bold; 
+            color: #555; 
+            font-size: 1rem; 
+            width: 40px; /* 固定寬度確保對齊 */
+        }
         
-        .bp-val-total { font-size: 1.25rem; font-weight: bold; color: #333; text-align: right; min-width: 70px; }
-        .bp-val-added { font-size: 0.95rem; font-weight: bold; color: #198754; width: 40px; text-align: right; }
+        .bp-val-total { 
+            font-size: 1.35rem; 
+            font-weight: 800; 
+            color: #333; 
+        }
+
+        .bp-val-added { 
+            font-size: 1rem; 
+            font-weight: bold; 
+            color: #198754; /* 綠色 */
+        }
         
-        .bp-btn-group { display: flex; gap: 5px; margin-left: 10px; }
-        .bp-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border-radius: 4px; }
+        /* 達上限時總數字變紅，加點變紅 */
+        .bp-control.limit-hit .bp-val-total { color: #dc3545; }
         
-        .bp-limit-reached { color: #dc3545; font-size: 0.8em; margin-left: 5px; display: none; }
-        .bp-control.limit-hit .bp-val-total { color: #dc3545; } /* 達上限時總數字變紅 */
+        /* 右側按鈕區 */
+        .bp-btn-group { 
+            display: flex; 
+            gap: 20px; /* 按鈕之間的間距，防止誤觸 */
+        }
         
+        .bp-btn { 
+            width: 44px; 
+            height: 44px; 
+            padding: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 900; 
+            font-size: 1.5rem; /* 符號加大 */
+            border-radius: 8px;
+            padding-bottom: 4px; /* 微調符號垂直居中 */
+        }
+        /* --- 結束樣式修改 --- */
+
         .level-control { display: flex; align-items: center; justify-content: center; gap: 20px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .main-stat-display { background-color: #cfe2ff; border-color: #b6d4fe; }
         
@@ -43,20 +90,10 @@
         .bg-gradient-dark { background: linear-gradient(135deg, #212529, #343a40); }
 
         .toast-message {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(50, 50, 50, 0.9);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 9999;
-            font-size: 0.95rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease, bottom 0.3s ease;
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(50, 50, 50, 0.9); color: white; padding: 12px 24px;
+            border-radius: 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 9999;
+            font-size: 0.95rem; pointer-events: none; opacity: 0; transition: opacity 0.3s ease, bottom 0.3s ease;
         }
         .toast-message.show { opacity: 1; bottom: 40px; }
 
@@ -101,7 +138,6 @@
                         <span class="fw-bold fs-5">⚙️ 基礎設定</span>
                     </div>
                     <div class="card-body py-3">
-                        <!-- 設定第一行：原始成長 + 成長係數 -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-9 col-sm-12">
                                 <label class="setting-label">原始成長檔 (體 力 強 速 魔)</label>
@@ -112,7 +148,6 @@
                                 <input type="number" class="form-control form-control-lg bg-light" id="bpRate" value="0.2" step="0.01">
                             </div>
                         </div>
-                        <!-- 設定第二行：掉檔 + 隨機檔 -->
                         <div class="row g-3">
                             <div class="col-md-6 col-sm-12">
                                 <label class="setting-label">掉檔 (0~4)</label>
@@ -157,16 +192,14 @@
                             <button class="btn btn-outline-primary btn-lg rounded-circle" id="lvlUp" style="width: 50px; height: 50px; font-weight:bold;">＋</button>
                         </div>
 
-                        <!-- 剩餘點數提示 -->
                         <div class="alert alert-light border text-center mb-4 shadow-sm">
                             <span class="text-muted">剩餘點數 (BP):</span> 
                             <strong id="remainBp" class="fs-4 ms-2">0</strong>
                         </div>
 
-                        <!-- 五圍加點 -->
+                        <!-- 五圍加點 (JS生成) -->
                         <div id="manualBpContainer"></div>
                         
-                        <!-- 重置按鈕 -->
                         <div class="d-flex gap-2 mt-4 pt-3 border-top">
                              <button class="btn btn-secondary flex-grow-1" id="resetBpBtn">↺ 重置配點</button>
                              <button class="btn btn-outline-danger flex-grow-1" id="resetLvlBtn">↺ 重置等級</button>
@@ -394,19 +427,17 @@
         function renderBpControls() {
             els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
                 <div class="bp-control" id="bpRow${i}">
-                    <span class="bp-label">${name}</span>
-                    <div class="bp-data-area">
-                        <!-- 總 BP 顯示 -->
+                    <!-- 左側資訊區 -->
+                    <div class="bp-info-area">
+                        <span class="bp-label">${name}</span>
                         <span class="bp-val-total" id="totalVal${i}">0</span>
-                        
-                        <!-- 綠色加點顯示 -->
-                        <span class="bp-val-added" id="addedVal${i}">+0</span>
-                        
-                        <!-- 按鈕組 -->
-                        <div class="bp-btn-group">
-                            <button class="btn btn-outline-danger bp-btn" id="btnBpDec${i}">-</button>
-                            <button class="btn btn-outline-primary bp-btn" id="btnBpInc${i}">+</button>
-                        </div>
+                        <span class="bp-val-added" id="addedVal${i}"></span>
+                    </div>
+                    
+                    <!-- 右側按鈕區 -->
+                    <div class="bp-btn-group">
+                        <button class="btn btn-outline-danger bp-btn" id="btnBpDec${i}">－</button>
+                        <button class="btn btn-outline-primary bp-btn" id="btnBpInc${i}">＋</button>
                     </div>
                 </div>
             `).join('');
@@ -453,7 +484,8 @@
         function updateBpButtons(baseBpArray) {
             const remaining = getRemainingBp();
             
-            // 使用 Math.floor 計算計算單項爆點的判斷依據
+            // 計算爆點邏輯：
+            // BP上限 = (總基礎BP + 升等點數) / 2
             const totalBaseBpFloor = baseBpArray.reduce((acc, val) => acc + Math.floor(val), 0);
             const totalLevelPoints = state.level - 1;
             const grandTotal = totalBaseBpFloor + totalLevelPoints;
@@ -464,8 +496,7 @@
                 const btnDec = document.getElementById(`btnBpDec${i}`);
                 const row = document.getElementById(`bpRow${i}`);
 
-                // 判斷是否爆點：使用 (基礎BP無條件捨去 + 手動配點) 是否 >= 總BP的一半
-                // 若遊戲規則是看小數點後的總和，這裡拿掉 Math.floor 即可
+                // 實際單項值 = 基礎(取整) + 手動分配
                 const currentValForLimit = Math.floor(baseBpArray[i]) + state.manualBp[i];
                 
                 const isAtLimit = currentValForLimit >= limit;
@@ -486,17 +517,23 @@
             const actualGrow = state.baseGrow.map((g, i) => g - (state.drop[i] || 0));
             const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
 
-            // 更新 BP 顯示數值
+            // 更新 BP 顯示
             state.manualBp.forEach((val, i) => {
-                const baseBpVal = result.baseBp[i]; // 這是含小數點的原始計算值
+                const baseBpVal = result.baseBp[i]; 
                 const totalBp = baseBpVal + val;
                 
-                // 更新總數值：保留小數點後兩位 (parseFloat 去除無效的 .00 讓整數顯示更好看，或者直接用 toFixed(2) 統一顯示)
+                // 顯示總 BP，保留小數點後兩位
                 document.getElementById(`totalVal${i}`).textContent = parseFloat(totalBp.toFixed(2));
                 
-                // 更新綠色加點數值
-                const addedText = val > 0 ? `+${val}` : '';
-                document.getElementById(`addedVal${i}`).textContent = addedText;
+                // 顯示配點增量
+                const addedEl = document.getElementById(`addedVal${i}`);
+                if (val > 0) {
+                    addedEl.textContent = `+${val}`;
+                    addedEl.style.display = 'inline';
+                } else {
+                    addedEl.textContent = '';
+                    addedEl.style.display = 'none';
+                }
             });
 
             els.resultsStats.hp.textContent = result.stats.hp.toFixed(0);
