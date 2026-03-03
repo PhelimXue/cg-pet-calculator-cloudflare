@@ -109,23 +109,23 @@ function fastBpToValues(bpArray) {
  * @param {*} bpRate 成長率 (預設 0.2)
  */
 export function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints, bpRate = 0.2) {
-    if (petLevel === 1) {
-        // level 1: (grow + random) * rate
-        const actualBp = petGrow.map((g, i) => fixPos((g + randomGrow[i]) * bpRate)); 
-        const stats = bpToStats(actualBp);
-        return { baseBp: actualBp, actualBp, stats };
-    }
+    // 通用計算所有等級 (包含 Level 1)
+    // 邏輯：BaseBP = (成長 + 隨機) * rate + 升級成長
     
-    // level > 1
     const lvldiff = petLevel - 1;
-    // Base BP 不包含 user 加點，也不含隨機部分影響。 (修正：隨機檔通常也受率影響，但魔力計算通常是 Base 算完再疊加)
-    // 這裡我們維持原邏輯：
-    // BaseBP = 成長BP * rate + 升級加成
-    const baseBp = petGrow.map((grow) => fixPos(grow * bpRate + getRate(grow) * lvldiff));
     
-    // ActualBP = BaseBP + 手動點 + (隨機 * rate)
-    // 注意: 隨機檔在計算 BP 時也是乘上 rate
-    const actualBp = baseBp.map((bp, i) => fixPos(bp + manualPoints[i] + bpRate * randomGrow[i]));
+    // 計算 Base BP (含隨機檔，但不含手動點數)
+    const baseBp = petGrow.map((grow, i) => {
+        // 1等時的初始狀態: (成長 + 隨機) * 0.2
+        const initBp = (grow + randomGrow[i]) * bpRate;
+        // 升級獲得的狀態: 係數 * (等級-1)
+        const lvlUpBp = getRate(grow) * lvldiff;
+        
+        return fixPos(initBp + lvlUpBp);
+    });
+    
+    // 計算 Actual BP (Base + 手動配點)
+    const actualBp = baseBp.map((bp, i) => fixPos(bp + manualPoints[i]));
     
     const stats = bpToStats(actualBp);
     return { baseBp, actualBp, stats };

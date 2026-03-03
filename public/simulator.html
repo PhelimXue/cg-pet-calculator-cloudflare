@@ -542,13 +542,13 @@
 
             const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
 
-            els.resultsStats.hp.textContent = Math.floor(result.stats.hp);
-            els.resultsStats.mp.textContent = Math.floor(result.stats.mp);
-            els.resultsStats.atk.textContent = Math.floor(result.stats.atk);
-            els.resultsStats.def.textContent = Math.floor(result.stats.def);
-            els.resultsStats.agi.textContent = Math.floor(result.stats.agi);
-            els.resultsStats.spt.textContent = Math.floor(result.stats.spt);
-            els.resultsStats.rec.textContent = Math.floor(result.stats.rec);
+            els.resultsStats.hp.textContent = result.stats.hp.toFixed(2);
+            els.resultsStats.mp.textContent = result.stats.mp.toFixed(2);
+            els.resultsStats.atk.textContent = result.stats.atk.toFixed(2);
+            els.resultsStats.def.textContent = result.stats.def.toFixed(2);
+            els.resultsStats.agi.textContent = result.stats.agi.toFixed(2);
+            els.resultsStats.spt.textContent = result.stats.spt.toFixed(2);
+            els.resultsStats.rec.textContent = result.stats.rec.toFixed(2);
 
             result.baseBp.forEach((b, i) => els.infos.b[i].textContent = b.toFixed(2));
 
