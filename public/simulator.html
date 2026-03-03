@@ -8,28 +8,33 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.min.js"></script>
     <style>
         body { background-color: #f8f9fa; padding: 20px 0; user-select: none; }
-        .container { max-width: 900px; }
-        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .stat-box { background-color: #fff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 10px; }
-        .stat-value { font-size: 1.5em; font-weight: bold; color: #0d6efd; }
-        .stat-label { color: #6c757d; font-size: 0.9em; }
-        .bp-control { display: flex; align-items: center; justify-content: space-between; padding: 8px; background: #e9ecef; border-radius: 6px; margin-bottom: 8px; }
-        .bp-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .bp-val { font-weight: bold; min-width: 30px; text-align: center; }
-        /* 限制狀態樣式 */
+        .container { max-width: 1000px; }
+        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.08); margin-bottom: 20px; border: none; }
+        
+        .stat-box { background-color: #fff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 15px; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stat-value { font-size: 1.8em; font-weight: bold; color: #0d6efd; line-height: 1.2; }
+        .stat-label { color: #6c757d; font-size: 0.9em; margin-bottom: 5px; }
+        
+        .bp-control { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #e9ecef; border-radius: 6px; margin-bottom: 10px; }
+        .bp-btn { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+        .bp-val { font-weight: bold; min-width: 50px; text-align: center; font-size: 1.25em; color: #333; }
+        
         .bp-limit-reached { color: #dc3545; font-size: 0.8em; margin-left: 5px; display: none; }
         .bp-control.limit-hit .bp-limit-reached { display: inline; }
 
-        .level-control { display: flex; align-items: center; justify-content: center; gap: 15px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .main-stat-display { background-color: #cfe2ff; }
-        .drop-select { width: 60px; display: inline-block; }
+        .level-control { display: flex; align-items: center; justify-content: center; gap: 20px; background: #d1e7dd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .main-stat-display { background-color: #cfe2ff; border-color: #b6d4fe; }
         
-        /* 搜尋框相關樣式 */
-        #search-results-container { position: absolute; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #search-results-container { position: absolute; z-index: 1000; width: 100%; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 0 0 8px 8px; }
         .suggestion-item { cursor: pointer; }
         .suggestion-item:hover { background-color: #f0f4ff; }
         
-        .pet-title { font-size: 1.2rem; font-weight: bold; color: #0d6efd; }
+        .pet-title { font-size: 1.2rem; font-weight: bold; color: #0d6efd; margin-top: 5px; }
+        
+        .bg-gradient-primary { background: linear-gradient(135deg, #0d6efd, #0043a8); }
+        .bg-gradient-success { background: linear-gradient(135deg, #198754, #0f5132); }
+        .bg-gradient-dark { background: linear-gradient(135deg, #212529, #343a40); }
+
         .toast-message {
             position: fixed;
             bottom: 20px;
@@ -46,97 +51,124 @@
             opacity: 0;
             transition: opacity 0.3s ease, bottom 0.3s ease;
         }
-
         .toast-message.show {
             opacity: 1;
             bottom: 40px;
         }
+
+        input.form-control, select.form-select { text-align: center; font-weight: 500; }
+        .setting-label { font-size: 0.95rem; margin-bottom: 6px; font-weight: bold; color: #495057; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <!-- 頂部標題與按鈕 -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
-                <h1>寵物素質模擬器</h1>
+                <h2 class="mb-0 fw-bold text-dark">寵物素質模擬器</h2>
                 <div id="currentPetNameDisplay" class="pet-title" style="display:none;"></div>
             </div>
             <div>
-                <button class="btn btn-success me-2" id="shareBtn">🔗 分享配置</button>
-                <a href="index.html" class="btn btn-outline-secondary">← 返回算檔器</a>
+                <button class="btn btn-success me-2 shadow-sm" id="shareBtn">🔗 分享配置</button>
+                <a href="index.html" class="btn btn-outline-secondary shadow-sm">← 返回算檔器</a>
             </div>
         </div>
 
-        <!-- 搜尋列 -->
-        <div class="card mb-3">
-            <div class="card-body py-3">
-                <label for="petSearch" class="form-label text-primary fw-bold mb-1">🔍 快速搜尋寵物 (自動切換成長檔)</label>
-                <div class="position-relative">
-                    <input type="text" class="form-control" id="petSearch" placeholder="搜尋寵物名稱 (例如: 虎人)..." autocomplete="off">
-                    <div id="search-results-container" class="list-group"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- 左側：設定與加點 -->
-            <div class="col-md-5">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">基礎設定</div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">原始成長檔 (體 力 強 速 魔)</label>
-                            <input type="text" class="form-control" id="baseGrow" placeholder="36 38 34 11 6" value="36 38 34 11 6">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">掉檔 (0~4)</label>
-                            <div class="d-flex gap-1">
-                                <select class="form-select px-1 text-center" id="drop0"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                                <select class="form-select px-1 text-center" id="drop1"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                                <select class="form-select px-1 text-center" id="drop2"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                                <select class="form-select px-1 text-center" id="drop3"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                                <select class="form-select px-1 text-center" id="drop4"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">隨機檔 (0~10)</label>
-                            <!-- 任務1：隨機檔改為下拉選單 -->
-                            <div class="d-flex gap-1">
-                                <select class="form-select px-1 text-center" id="rand0"></select>
-                                <select class="form-select px-1 text-center" id="rand1"></select>
-                                <select class="form-select px-1 text-center" id="rand2"></select>
-                                <select class="form-select px-1 text-center" id="rand3"></select>
-                                <select class="form-select px-1 text-center" id="rand4"></select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">成長係數</label>
-                            <input type="number" class="form-control" id="bpRate" value="0.2" step="0.01">
+        <!-- Row 1: 搜尋列 -->
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card bg-white border-0 shadow-sm">
+                    <div class="card-body py-3">
+                        <label for="petSearch" class="form-label text-primary fw-bold mb-1">🔍 搜尋寵物 (自動帶入成長檔)</label>
+                        <div class="position-relative">
+                            <input type="text" class="form-control form-control-lg" id="petSearch" placeholder="請輸入寵物名稱..." autocomplete="off" style="text-align: left;">
+                            <div id="search-results-container" class="list-group"></div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
+        <!-- Row 2: 基礎設定 (拆分成兩行) -->
+        <div class="row mb-3">
+            <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-success text-white">等級與加點</div>
-                    <div class="card-body">
-                        <div class="level-control">
-                            <button class="btn btn-outline-danger" id="lvlDown" style="min-width: 40px">-</button>
-                            <div class="text-center">
-                                <div style="font-size: 0.8em; color: #198754;">目前等級</div>
-                                <div style="font-size: 2em; font-weight: bold; line-height: 1;" id="displayLvl">1</div>
+                    <div class="card-header bg-gradient-primary text-white py-2">
+                        <span class="fw-bold fs-5">⚙️ 基礎設定</span>
+                    </div>
+                    <div class="card-body py-3">
+                        
+                        <!-- 設定第一行：原始成長 + 成長係數 -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-9 col-sm-12">
+                                <label class="setting-label">原始成長檔 (體 力 強 速 魔)</label>
+                                <input type="text" class="form-control form-control-lg bg-light" id="baseGrow" placeholder="36 38 34 11 6" value="36 38 34 11 6">
                             </div>
-                            <button class="btn btn-outline-primary" id="lvlUp" style="min-width: 40px">+</button>
+                            <div class="col-md-3 col-sm-12">
+                                <label class="setting-label">成長係數</label>
+                                <input type="number" class="form-control form-control-lg bg-light" id="bpRate" value="0.2" step="0.01">
+                            </div>
                         </div>
 
-                        <div class="alert alert-warning py-2 text-center">
-                            剩餘點數 (BP): <strong id="remainBp">0</strong>
+                        <!-- 設定第二行：掉檔 + 隨機檔 -->
+                        <div class="row g-3">
+                            <div class="col-md-6 col-sm-12">
+                                <label class="setting-label">掉檔 (0~4)</label>
+                                <div class="d-flex gap-2">
+                                    <select class="form-select" id="drop0"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                    <select class="form-select" id="drop1"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                    <select class="form-select" id="drop2"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                    <select class="form-select" id="drop3"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                    <select class="form-select" id="drop4"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-sm-12">
+                                <label class="setting-label">隨機檔 (0~10)</label>
+                                <div class="d-flex gap-2">
+                                    <select class="form-select" id="rand0"></select>
+                                    <select class="form-select" id="rand1"></select>
+                                    <select class="form-select" id="rand2"></select>
+                                    <select class="form-select" id="rand3"></select>
+                                    <select class="form-select" id="rand4"></select>
+                                </div>
+                            </div>
                         </div>
 
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: 等級加點 (左) / 結果 (右) -->
+        <div class="row g-3">
+            <!-- 左側：等級與加點 -->
+            <div class="col-md-5">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-gradient-success text-white py-2 fw-bold fs-5">等級與配點</div>
+                    <div class="card-body">
+                        <!-- 等級控制 -->
+                        <div class="level-control shadow-sm">
+                            <button class="btn btn-outline-danger btn-lg rounded-circle" id="lvlDown" style="width: 50px; height: 50px; font-weight:bold;">－</button>
+                            <div class="text-center">
+                                <div style="font-size: 0.8em; color: #198754; font-weight: 800; letter-spacing: 1px;">LEVEL</div>
+                                <div style="font-size: 2.5em; font-weight: 800; line-height: 0.9;" id="displayLvl">1</div>
+                            </div>
+                            <button class="btn btn-outline-primary btn-lg rounded-circle" id="lvlUp" style="width: 50px; height: 50px; font-weight:bold;">＋</button>
+                        </div>
+
+                        <!-- 剩餘點數提示 -->
+                        <div class="alert alert-light border text-center mb-4 shadow-sm">
+                            <span class="text-muted">剩餘點數 (BP):</span> 
+                            <strong id="remainBp" class="fs-4 ms-2">0</strong>
+                        </div>
+
+                        <!-- 五圍加點 -->
                         <div id="manualBpContainer"></div>
                         
-                        <!-- 任務2：新增重置等級功能 -->
-                        <div class="d-flex gap-2 mt-3">
-                             <button class="btn btn-outline-secondary btn-sm flex-grow-1" id="resetBpBtn">重置加點</button>
-                             <button class="btn btn-outline-danger btn-sm flex-grow-1" id="resetLvlBtn">重置等級</button>
+                        <!-- 重置按鈕 -->
+                        <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                             <button class="btn btn-secondary flex-grow-1" id="resetBpBtn">↺ 重置配點</button>
+                             <button class="btn btn-outline-danger flex-grow-1" id="resetLvlBtn">↺ 重置等級</button>
                         </div>
                     </div>
                 </div>
@@ -144,44 +176,27 @@
 
             <!-- 右側：結果顯示 -->
             <div class="col-md-7">
-                <div class="card h-100">
-                    <div class="card-header bg-dark text-white">模擬素質結果</div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-6"><div class="stat-box main-stat-display"><div class="stat-label">生命 (HP)</div><div class="stat-value" id="resHp">0</div></div></div>
-                            <div class="col-6"><div class="stat-box main-stat-display"><div class="stat-label">魔力 (MP)</div><div class="stat-value" id="resMp">0</div></div></div>
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-gradient-dark text-white py-2 fw-bold fs-5">模擬素質結果</div>
+                    <div class="card-body d-flex flex-column justify-content-center">
+                        <div class="row g-3">
+                            <div class="col-6"><div class="stat-box main-stat-display shadow-sm"><div class="stat-label">生命 (HP)</div><div class="stat-value" id="resHp">0</div></div></div>
+                            <div class="col-6"><div class="stat-box main-stat-display shadow-sm"><div class="stat-label">魔力 (MP)</div><div class="stat-value" id="resMp">0</div></div></div>
                             
-                            <div class="col-4"><div class="stat-box"><div class="stat-label">攻擊 (ATK)</div><div class="stat-value" id="resAtk">0</div></div></div>
-                            <div class="col-4"><div class="stat-box"><div class="stat-label">防禦 (DEF)</div><div class="stat-value" id="resDef">0</div></div></div>
-                            <div class="col-4"><div class="stat-box"><div class="stat-label">敏捷 (AGI)</div><div class="stat-value" id="resAgi">0</div></div></div>
+                            <div class="col-4"><div class="stat-box shadow-sm"><div class="stat-label">攻擊 (ATK)</div><div class="stat-value" id="resAtk">0</div></div></div>
+                            <div class="col-4"><div class="stat-box shadow-sm"><div class="stat-label">防禦 (DEF)</div><div class="stat-value" id="resDef">0</div></div></div>
+                            <div class="col-4"><div class="stat-box shadow-sm"><div class="stat-label">敏捷 (AGI)</div><div class="stat-value" id="resAgi">0</div></div></div>
                             
-                            <div class="col-6"><div class="stat-box"><div class="stat-label">精神 (SPT)</div><div class="stat-value" id="resSpt">0</div></div></div>
-                            <div class="col-6"><div class="stat-box"><div class="stat-label">回復 (REC)</div><div class="stat-value" id="resRec">0</div></div></div>
+                            <div class="col-6"><div class="stat-box shadow-sm"><div class="stat-label">精神 (SPT)</div><div class="stat-value" id="resSpt">0</div></div></div>
+                            <div class="col-6"><div class="stat-box shadow-sm"><div class="stat-label">回復 (REC)</div><div class="stat-value" id="resRec">0</div></div></div>
                         </div>
-
-                        <hr>
-                        <h6>原始 BP 分析 (不含加點)</h6>
-                        <table class="table table-sm table-bordered text-center" style="font-size: 0.9em;">
-                            <thead>
-                                <tr class="table-light"><th>屬性</th><th>體力</th><th>力量</th><th>強度</th><th>速度</th><th>魔法</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>檔次</td>
-                                    <td id="infoG0">0</td><td id="infoG1">0</td><td id="infoG2">0</td><td id="infoG3">0</td><td id="infoG4">0</td>
-                                </tr>
-                                <tr>
-                                    <td>基礎BP</td>
-                                    <td id="infoB0">0</td><td id="infoB1">0</td><td id="infoB2">0</td><td id="infoB3">0</td><td id="infoB4">0</td>
-                                </tr>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Script 部分保持不變 -->
     <script type="module">
         import { calculatePetStats } from './js/logic.js';
 
@@ -216,21 +231,16 @@
                 agi: document.getElementById('resAgi'),
                 spt: document.getElementById('resSpt'),
                 rec: document.getElementById('resRec')
-            },
-            infos: {
-                g: [0,1,2,3,4].map(i => document.getElementById(`infoG${i}`)),
-                b: [0,1,2,3,4].map(i => document.getElementById(`infoB${i}`))
             }
         };
 
         let petData = [];
 
-        // 初始化隨機檔下拉選單 (0~10)
         function initRandomSelects() {
             const optionsHtml = Array.from({length: 11}, (_, k) => `<option value="${k}">${k}</option>`).join('');
             els.rands.forEach(select => {
                 select.innerHTML = optionsHtml;
-                select.value = "2"; // 預設值
+                select.value = "2"; 
             });
         }
 
@@ -244,14 +254,12 @@
             };
 
             const start = (e) => {
-                // 如果是 disabled 的按鈕，不執行
                 if (element.disabled) return;
                 
                 if(e.cancelable && e.type !== 'mousedown') e.preventDefault(); 
                 action(); 
                 timer = setTimeout(() => {
                     interval = setInterval(() => {
-                        // 每次重複前檢查是否 disabled
                         if (element.disabled) {
                             clear();
                         } else {
@@ -286,7 +294,6 @@
         async function init() {
             initRandomSelects();
 
-            // 載入寵物資料
             try {
                 let converter = window.OpenCC ? await window.OpenCC.Converter({ from: 'tw', to: 'cn' }) : null;
                 const response = await fetch('./originmood-pet-data.json');
@@ -299,7 +306,6 @@
                 }
             } catch (err) {}
 
-            // 讀取 URL 參數
             const params = new URLSearchParams(window.location.search);
             if(params.has('petName')) updatePetName(params.get('petName'));
             
@@ -345,7 +351,6 @@
                 refreshUI();
             });
 
-            // 任務2：綁定重置等級按鈕
             document.getElementById('resetLvlBtn').addEventListener('click', () => {
                 state.level = 1;
                 state.manualBp = [0,0,0,0,0];
@@ -357,7 +362,7 @@
             state.petName = name;
             els.search.value = name;
             if(name) {
-                els.petNameDisplay.textContent = `目前模擬: ${name}`;
+                els.petNameDisplay.textContent = `模擬中配點: ${name}`;
                 els.petNameDisplay.style.display = 'block';
             } else {
                 els.petNameDisplay.style.display = 'none';
@@ -412,7 +417,7 @@
                 navigator.clipboard.writeText(shareUrl).then(() => {
                     const btn = document.getElementById('shareBtn');
                     const originalText = btn.innerHTML;
-                    btn.innerHTML = '✓ 已複製網址';
+                    btn.innerHTML = '✓ 已複製';
                     setTimeout(() => btn.innerHTML = originalText, 2000);
                 }).catch(() => alert('複製失敗，請手動複製網址列'));
             });
@@ -421,7 +426,7 @@
         function renderBpControls() {
             els.manualContainer.innerHTML = ATTR_NAMES.map((name, i) => `
                 <div class="bp-control" id="bpRow${i}">
-                    <span>${name}<span class="bp-limit-reached">(達上限)</span></span>
+                    <span style="font-weight:bold; color:#555;">${name}<span class="bp-limit-reached">(達上限)</span></span>
                     <div class="d-flex align-items-center">
                         <button class="btn btn-outline-danger bp-btn me-2" id="btnBpDec${i}">-</button>
                         <span class="bp-val" id="manualVal${i}">0</span>
@@ -471,8 +476,6 @@
 
         function changeBp(index, delta) {
             if (delta === 1) {
-                // 加點檢查現在主要由 updateBpButtons 來控制 disabled 狀態
-                // 這裡僅做有剩餘點數的基本檢查
                 if (getRemainingBp() > 0) {
                     state.manualBp[index]++;
                 }
@@ -484,21 +487,12 @@
             refreshUI();
         }
 
-        // 任務3修正：用完整閾值判斷上限
         function updateBpButtons(baseBpArray) {
             const remaining = getRemainingBp();
             
-            // 1. 計算所有原始 BP 的整數總和 (基礎值)
             const totalBaseBp = baseBpArray.reduce((acc, val) => acc + Math.floor(val), 0);
-            
-            // 2. 計算該等級總共的手動點數 (無論是否已分配)
-            // 例如等級 60，總共有 59 點手動點數
             const totalLevelPoints = state.level - 1;
-
-            // 3. 計算理論最大總和 (基礎 + 滿額手動)
             const grandTotal = totalBaseBp + totalLevelPoints;
-
-            // 4. 計算單項上限 (總和 / 2，無條件捨去)
             const limit = Math.floor(grandTotal / 2);
 
             ATTR_NAMES.forEach((_, i) => {
@@ -512,9 +506,6 @@
                 // 減號：只要有手動分配即可減
                 btnDec.disabled = (state.manualBp[i] <= 0);
 
-                // 加號按鈕停用條件：
-                // 1. 沒有剩餘點數
-                // 2. 該數值已經 >= 上限
                 const isAtLimit = currentVal >= limit;
 
                 if (isAtLimit) {
@@ -533,24 +524,23 @@
             els.remainBp.textContent = remain;
             els.remainBp.className = remain > 0 ? 'text-danger' : 'text-success';
 
-            state.manualBp.forEach((val, i) => {
-                document.getElementById(`manualVal${i}`).textContent = val;
-            });
-
             const actualGrow = state.baseGrow.map((g, i) => g - (state.drop[i] || 0));
-            actualGrow.forEach((g, i) => els.infos.g[i].textContent = g);
-
             const result = calculatePetStats(actualGrow, state.random, state.level, state.manualBp, state.rate);
 
-            els.resultsStats.hp.textContent = result.stats.hp.toFixed(2);
-            els.resultsStats.mp.textContent = result.stats.mp.toFixed(2);
-            els.resultsStats.atk.textContent = result.stats.atk.toFixed(2);
-            els.resultsStats.def.textContent = result.stats.def.toFixed(2);
-            els.resultsStats.agi.textContent = result.stats.agi.toFixed(2);
-            els.resultsStats.spt.textContent = result.stats.spt.toFixed(2);
-            els.resultsStats.rec.textContent = result.stats.rec.toFixed(2);
+            // 更新中間顯示的數值： 基礎BP (取整) + 手動分配點數
+            state.manualBp.forEach((val, i) => {
+                const baseBpVal = Math.floor(result.baseBp[i]);
+                const totalBp = baseBpVal + val;
+                document.getElementById(`manualVal${i}`).textContent = totalBp;
+            });
 
-            result.baseBp.forEach((b, i) => els.infos.b[i].textContent = b.toFixed(2));
+            els.resultsStats.hp.textContent = result.stats.hp.toFixed(0);
+            els.resultsStats.mp.textContent = result.stats.mp.toFixed(0);
+            els.resultsStats.atk.textContent = result.stats.atk.toFixed(0);
+            els.resultsStats.def.textContent = result.stats.def.toFixed(0);
+            els.resultsStats.agi.textContent = result.stats.agi.toFixed(0);
+            els.resultsStats.spt.textContent = result.stats.spt.toFixed(0);
+            els.resultsStats.rec.textContent = result.stats.rec.toFixed(0);
 
             // 更新按鈕狀態
             updateBpButtons(result.baseBp);
