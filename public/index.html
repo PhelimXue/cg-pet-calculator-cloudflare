@@ -510,13 +510,13 @@
                         </div>
                     </div>
                     <div>
-                        <span class="stat-badge">HP: ${item.stats.hp.toFixed(0)}</span>
-                        <span class="stat-badge">MP: ${item.stats.mp.toFixed(0)}</span>
-                        <span class="stat-badge">攻: ${item.stats.atk.toFixed(0)}</span>
-                        <span class="stat-badge">防: ${item.stats.def.toFixed(0)}</span>
-                        <span class="stat-badge">敏: ${item.stats.agi.toFixed(0)}</span>
-                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">精: ${item.stats.spt.toFixed(0)}</span>
-                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">回: ${item.stats.rec.toFixed(0)}</span>
+                        <span class="stat-badge">HP: ${Math.floor(item.stats.hp)}</span>
+                        <span class="stat-badge">MP: ${Math.floor(item.stats.mp)}</span>
+                        <span class="stat-badge">攻: ${Math.floor(item.stats.atk)}</span>
+                        <span class="stat-badge">防: ${Math.floor(item.stats.def)}</span>
+                        <span class="stat-badge">敏: ${Math.floor(item.stats.agi)}</span>
+                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">精: ${Math.floor(item.stats.spt)}</span>
+                        <span class="stat-badge text-primary" style="background-color: #e2e6ea;">回: ${Math.floor(item.stats.rec)}</span>
                     </div>
                 </div>`;
         }

@@ -539,13 +539,13 @@
                 }
             });
 
-            els.resultsStats.hp.textContent = result.stats.hp.toFixed(0);
-            els.resultsStats.mp.textContent = result.stats.mp.toFixed(0);
-            els.resultsStats.atk.textContent = result.stats.atk.toFixed(0);
-            els.resultsStats.def.textContent = result.stats.def.toFixed(0);
-            els.resultsStats.agi.textContent = result.stats.agi.toFixed(0);
-            els.resultsStats.spt.textContent = result.stats.spt.toFixed(0);
-            els.resultsStats.rec.textContent = result.stats.rec.toFixed(0);
+            els.resultsStats.hp.textContent = Math.floor(result.stats.hp);
+            els.resultsStats.mp.textContent = Math.floor(result.stats.mp);
+            els.resultsStats.atk.textContent = Math.floor(result.stats.atk);
+            els.resultsStats.def.textContent = Math.floor(result.stats.def);
+            els.resultsStats.agi.textContent = Math.floor(result.stats.agi);
+            els.resultsStats.spt.textContent = Math.floor(result.stats.spt);
+            els.resultsStats.rec.textContent = Math.floor(result.stats.rec);
 
             updateBpButtons(result.baseBp);
         }
