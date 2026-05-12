@@ -31,11 +31,7 @@ const fullRates = {
 };
 
 function getRate(grow) {
-    return fullRates[Math.max(0, Math.min(52, grow))] || 0;
-}
-
-function fixPos(n) {
-    return Math.round(n * 10000) / 10000;
+    return Math.fround(fullRates[Math.max(0, Math.min(52, grow))] || 0);
 }
 
 /**
@@ -69,35 +65,35 @@ function solveLinearSystem(FullMatrix, B) {
 }
 
 function bpToStats(bpArray) {
-    const calc = (row) => fixPos(
-        fixPos(MATRIX[row][0] * bpArray[0]) +
-        fixPos(MATRIX[row][1] * bpArray[1]) +
-        fixPos(MATRIX[row][2] * bpArray[2]) +
-        fixPos(MATRIX[row][3] * bpArray[3]) +
-        fixPos(MATRIX[row][4] * bpArray[4])
-    );
+    const f = Math.fround;
+    const calc = (row) => {
+        let sum = 0;
+        for (let i = 0; i < 5; i++) {
+            sum = f(sum + f(f(MATRIX[row][i]) * f(bpArray[i])));
+        }
+        return sum;
+    };
 
     return {
-        hp: fixPos(calc(0) + BASE),
-        mp: fixPos(calc(1) + BASE),
-        atk: fixPos(calc(2) + BASE),
-        def: fixPos(calc(3) + BASE),
-        agi: fixPos(calc(4) + BASE),
-        spt: fixPos(calc(5) + 100), 
-        rec: fixPos(calc(6) + 100)
+        hp: f(calc(0) + BASE),
+        mp: f(calc(1) + BASE),
+        atk: f(calc(2) + BASE),
+        def: f(calc(3) + BASE),
+        agi: f(calc(4) + BASE),
+        spt: f(calc(5) + 100),
+        rec: f(calc(6) + 100)
     };
 }
 
 function fastBpToValues(bpArray) {
-    return [
-        MATRIX[0][0] * bpArray[0] + MATRIX[0][1] * bpArray[1] + MATRIX[0][2] * bpArray[2] + MATRIX[0][3] * bpArray[3] + MATRIX[0][4] * bpArray[4],
-        MATRIX[1][0] * bpArray[0] + MATRIX[1][1] * bpArray[1] + MATRIX[1][2] * bpArray[2] + MATRIX[1][3] * bpArray[3] + MATRIX[1][4] * bpArray[4],
-        MATRIX[2][0] * bpArray[0] + MATRIX[2][1] * bpArray[1] + MATRIX[2][2] * bpArray[2] + MATRIX[2][3] * bpArray[3] + MATRIX[2][4] * bpArray[4],
-        MATRIX[3][0] * bpArray[0] + MATRIX[3][1] * bpArray[1] + MATRIX[3][2] * bpArray[2] + MATRIX[3][3] * bpArray[3] + MATRIX[3][4] * bpArray[4],
-        MATRIX[4][0] * bpArray[0] + MATRIX[4][1] * bpArray[1] + MATRIX[4][2] * bpArray[2] + MATRIX[4][3] * bpArray[3] + MATRIX[4][4] * bpArray[4],
-        MATRIX[5][0] * bpArray[0] + MATRIX[5][1] * bpArray[1] + MATRIX[5][2] * bpArray[2] + MATRIX[5][3] * bpArray[3] + MATRIX[5][4] * bpArray[4],
-        MATRIX[6][0] * bpArray[0] + MATRIX[6][1] * bpArray[1] + MATRIX[6][2] * bpArray[2] + MATRIX[6][3] * bpArray[3] + MATRIX[6][4] * bpArray[4]
-    ];
+    const f = Math.fround;
+    return MATRIX.map(row => {
+        let sum = 0;
+        for (let i = 0; i < 5; i++) {
+            sum = f(sum + f(f(row[i]) * f(bpArray[i])));
+        }
+        return sum;
+    });
 }
 
 /**
@@ -111,22 +107,22 @@ function fastBpToValues(bpArray) {
 export function calculatePetStats(petGrow, randomGrow, petLevel, manualPoints, bpRate = 0.2) {
     // 通用計算所有等級 (包含 Level 1)
     // 邏輯：BaseBP = (成長 + 隨機) * rate + 升級成長
-    
+    const f = Math.fround;
     const lvldiff = petLevel - 1;
-    
+    const bpRateF = f(bpRate);
+
     // 計算 Base BP (含隨機檔，但不含手動點數)
     const baseBp = petGrow.map((grow, i) => {
         // 1等時的初始狀態: (成長 + 隨機) * 0.2
-        const initBp = (grow + randomGrow[i]) * bpRate;
+        const initBp = f((grow + randomGrow[i]) * bpRateF);
         // 升級獲得的狀態: 係數 * (等級-1)
-        const lvlUpBp = getRate(grow) * lvldiff;
-        
-        return fixPos(initBp + lvlUpBp);
+        const lvlUpBp = f(getRate(grow) * lvldiff);
+        return f(initBp + lvlUpBp);
     });
-    
+
     // 計算 Actual BP (Base + 手動配點)
-    const actualBp = baseBp.map((bp, i) => fixPos(bp + manualPoints[i]));
-    
+    const actualBp = baseBp.map((bp, i) => f(bp + manualPoints[i]));
+
     const stats = bpToStats(actualBp);
     return { baseBp, actualBp, stats };
 }
@@ -245,10 +241,17 @@ export async function smartReverseCalculateMatrix(
         const randomCombos = getRandomCombos(); 
         const dropCombos = getDropCombos();     
 
+        const bpRateF = Math.fround(bpRate);
         const cachedRandomEffects = new Array(randomCombos.length);
         for (let i = 0; i < randomCombos.length; i++) {
             const r = randomCombos[i];
-            const randBP = [r[0]*bpRate, r[1]*bpRate, r[2]*bpRate, r[3]*bpRate, r[4]*bpRate];
+            const randBP = [
+                Math.fround(r[0] * bpRateF),
+                Math.fround(r[1] * bpRateF),
+                Math.fround(r[2] * bpRateF),
+                Math.fround(r[3] * bpRateF),
+                Math.fround(r[4] * bpRateF)
+            ];
             cachedRandomEffects[i] = fastBpToValues(randBP);
         }
 
@@ -267,42 +270,43 @@ export async function smartReverseCalculateMatrix(
             const actualGrow = baseGrow.map((g, i) => g - drops[i]);
             
             // 1等公式: (成長 - 掉檔) * rate
-            const baseBP = actualGrow.map(val => val * bpRate);
+            const baseBP = actualGrow.map(val => Math.fround(val * bpRateF));
             const baseVals = fastBpToValues(baseBP);
 
             for (let rIdx = 0; rIdx < randomCombos.length; rIdx++) {
                 totalChecked++;
                 const randVals = cachedRandomEffects[rIdx];
                 
-                const rawHP = baseVals[0] + randVals[0];
-                if (Math.floor(fixPos(rawHP + BASE)) !== targetStats.hp) continue;
+                const f = Math.fround;
+                const rawHP = f(baseVals[0] + randVals[0]);
+                if (Math.floor(f(rawHP + BASE)) !== targetStats.hp) continue;
 
-                const rawMP = baseVals[1] + randVals[1];
-                if (Math.floor(fixPos(rawMP + BASE)) !== targetStats.mp) continue;
+                const rawMP = f(baseVals[1] + randVals[1]);
+                if (Math.floor(f(rawMP + BASE)) !== targetStats.mp) continue;
 
-                const rawATK = baseVals[2] + randVals[2];
-                if (Math.floor(fixPos(rawATK + BASE)) !== targetStats.atk) continue;
+                const rawATK = f(baseVals[2] + randVals[2]);
+                if (Math.floor(f(rawATK + BASE)) !== targetStats.atk) continue;
 
-                const rawDEF = baseVals[3] + randVals[3];
-                if (Math.floor(fixPos(rawDEF + BASE)) !== targetStats.def) continue;
+                const rawDEF = f(baseVals[3] + randVals[3]);
+                if (Math.floor(f(rawDEF + BASE)) !== targetStats.def) continue;
 
-                const rawAGI = baseVals[4] + randVals[4];
-                if (Math.floor(fixPos(rawAGI + BASE)) !== targetStats.agi) continue;
+                const rawAGI = f(baseVals[4] + randVals[4]);
+                if (Math.floor(f(rawAGI + BASE)) !== targetStats.agi) continue;
 
-                const rawSPT = baseVals[5] + randVals[5];
-                if (checkSpt && Math.floor(fixPos(rawSPT + 100)) !== targetStats.spt) continue;
+                const rawSPT = f(baseVals[5] + randVals[5]);
+                if (checkSpt && Math.floor(f(rawSPT + 100)) !== targetStats.spt) continue;
 
-                const rawREC = baseVals[6] + randVals[6];
-                if (checkRec && Math.floor(fixPos(rawREC + 100)) !== targetStats.rec) continue;
+                const rawREC = f(baseVals[6] + randVals[6]);
+                if (checkRec && Math.floor(f(rawREC + 100)) !== targetStats.rec) continue;
 
                 const stats = {
-                    hp: fixPos(rawHP + BASE),
-                    mp: fixPos(rawMP + BASE),
-                    atk: fixPos(rawATK + BASE),
-                    def: fixPos(rawDEF + BASE),
-                    agi: fixPos(rawAGI + BASE),
-                    spt: fixPos(rawSPT + 100),
-                    rec: fixPos(rawREC + 100)
+                    hp: f(rawHP + BASE),
+                    mp: f(rawMP + BASE),
+                    atk: f(rawATK + BASE),
+                    def: f(rawDEF + BASE),
+                    agi: f(rawAGI + BASE),
+                    spt: f(rawSPT + 100),
+                    rec: f(rawREC + 100)
                 };
                 
                 addResult(actualGrow, randomCombos[rIdx], zeroPoints, stats, { hp:0, mp:0, atk:0, def:0, agi:0 });
@@ -328,6 +332,8 @@ export async function smartReverseCalculateMatrix(
     const randomCombos = getRandomCombos();
     const totalAllocatable = level - 1 - remainingPoints;
     const requireExactAllocation = (remainingPoints === 0);
+    const lvldiff2 = level - 1;
+    const bpRateF2 = Math.fround(bpRate);
 
     for (let bpIndex = 0; bpIndex < bpCombinations.length; bpIndex++) {
         const targetBPFloored = bpCombinations[bpIndex];
@@ -338,7 +344,7 @@ export async function smartReverseCalculateMatrix(
             if (dIdx % 200 === 0) {
                 const now = performance.now();
                 if (now - lastYieldTime > YIELD_INTERVAL) {
-                    await new Promise(r => setTimeout(r, 0)); 
+                    await new Promise(r => setTimeout(r, 0));
                     lastYieldTime = performance.now();
                     if (signal && signal.aborted) throw new Error('ABORTED');
                 }
@@ -347,9 +353,8 @@ export async function smartReverseCalculateMatrix(
             const actualGrow = baseGrow.map((g, i) => g - drops[i]);
             if (actualGrow.some(g => g < 0)) continue;
 
-            const lvldiff = level - 1;
             // 算基礎 BP (不含隨機與加點)
-            const baseBP = actualGrow.map(g => fixPos(g * bpRate + getRate(g) * lvldiff));
+            const baseBP = actualGrow.map(g => Math.fround(Math.fround(g * bpRateF2) + Math.fround(getRate(g) * lvldiff2)));
             const minBP = baseBP.map(bp => Math.floor(bp));
 
             if (baseBP.some((bp, i) => Math.floor(bp) > targetBPFloored[i])) continue;
@@ -360,11 +365,11 @@ export async function smartReverseCalculateMatrix(
 
             for (const randoms of randomCombos) {
                 totalChecked++;
-                
+
                 // 計算加入隨機檔後的 BP (尚未加點)
                 const bpNoAlloc = actualGrow.map((grow, i) => {
-                    const b = fixPos(grow * bpRate + getRate(grow) * lvldiff);
-                    return Math.floor(fixPos(b + bpRate * randoms[i]));
+                    const b = Math.fround(Math.fround(grow * bpRateF2) + Math.fround(getRate(grow) * lvldiff2));
+                    return Math.floor(Math.fround(b + Math.fround(bpRateF2 * randoms[i])));
                 });
 
                 let neededAlloc = targetBPFloored.map((target, i) => target - bpNoAlloc[i]);
