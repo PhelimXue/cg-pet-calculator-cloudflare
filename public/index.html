@@ -456,7 +456,7 @@
                         <div class="group-header" onclick="document.dispatchEvent(new CustomEvent('toggle-group', {detail: ${groupIndex}}))">
                             <span class="expand-icon" id="icon-${groupIndex}">▶</span>
                             <span class="percentage ms-2">${percentage}%</span>
-                            <span class="ms-3">掉檔: ${dropCombo.map((d, i) => d>0 ? `${ATTR_NAMES[i]}-${d}`: null).filter(x=>x).join(' ') || '全滿'}</span>
+                            <span class="ms-3">掉檔: ${dropCombo.map((d, i) => `${ATTR_NAMES[i]}-${d}`).join(' ')}</span>
                             <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
