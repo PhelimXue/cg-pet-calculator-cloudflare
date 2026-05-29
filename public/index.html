@@ -72,7 +72,10 @@
                         </div>
                         <div class="col-md-3">
                             <label for="remainingPoints" class="form-label">剩餘點數</label>
-                            <input type="number" class="form-control" id="remainingPoints" value="0" min="0" required>
+                            <div class="input-group">
+                                <input type="text" inputmode="numeric" class="form-control" id="remainingPoints" value="0" autocomplete="off" required>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="rpBtnLv" onclick="document.getElementById('remainingPoints').value=String(parseInt(document.getElementById('petLevel').value||1)-1)">未配點</button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label for="targetStats" class="form-label">寵物素質 (血 魔 攻 防 敏 [精 回])</label>
@@ -95,7 +98,10 @@
                             </div>
                             <div class="col-md-3">
                                 <label for="remainingPoints2" class="form-label">剩餘點數</label>
-                                <input type="number" class="form-control" id="remainingPoints2" value="0" min="0">
+                                <div class="input-group">
+                                    <input type="text" inputmode="numeric" class="form-control" id="remainingPoints2" value="0" autocomplete="off">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('remainingPoints2').value=String(parseInt(document.getElementById('petLevel2').value||1)-1)">未配點</button>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="targetStats2" class="form-label">素質 (血 魔 攻 防 敏 [精 回])</label>
