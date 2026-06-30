@@ -331,7 +331,6 @@ export async function smartReverseCalculateMatrix(
     const dropCombos = getDropCombos();
     const randomCombos = getRandomCombos();
     const totalAllocatable = level - 1 - remainingPoints;
-    const requireExactAllocation = (remainingPoints === 0);
     const lvldiff2 = level - 1;
     const bpRateF2 = Math.fround(bpRate);
 
@@ -377,12 +376,7 @@ export async function smartReverseCalculateMatrix(
 
                 const totalNeeded = neededAlloc.reduce((a, b) => a + b, 0);
                 
-                let isValidAlloc = false;
-                if (requireExactAllocation) {
-                    if (totalNeeded === totalAllocatable) isValidAlloc = true;
-                } else {
-                    if (totalNeeded <= totalAllocatable) isValidAlloc = true;
-                }
+                const isValidAlloc = (totalNeeded === totalAllocatable);
 
                 if (isValidAlloc) {
                     // 正向驗證，帶入目前選定的 bpRate

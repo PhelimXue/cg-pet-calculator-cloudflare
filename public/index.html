@@ -455,7 +455,9 @@
                 const [dropComboStr, manualPointsStr] = groupKey.split('|');
                 const dropCombo = dropComboStr.split(',').map(n => parseInt(n));
                 const manualPoints = manualPointsStr.split(',').map(n => parseInt(n));
-                
+                const usedPoints = manualPoints.reduce((a, b) => a + b, 0);
+                const unusedPoints = level - 1 - usedPoints;
+
                 html += `
                     <div class="result-group">
                         <div class="group-header" onclick="document.dispatchEvent(new CustomEvent('toggle-group', {detail: ${groupIndex}}))">
@@ -463,6 +465,7 @@
                             <span class="percentage ms-2">${percentage}%</span>
                             <span class="ms-3">掉檔: ${dropCombo.map((d, i) => `${ATTR_NAMES[i]}-${d}`).join(' ')}</span>
                             <span class="ms-3 text-secondary">| 加點: ${formatManualPoints(manualPoints)}</span>
+                            <span class="ms-3 text-secondary">| 未配: ${unusedPoints}點</span>
                         </div>
                         <div class="random-combos" id="group-${groupIndex}">
                             ${items.map(item => renderRandomCombo(item, baseGrow, level)).join('')}
